@@ -4,25 +4,32 @@ require_once __DIR__ . '/../includes/auth.php';
 auth(['manager', 'admin']);
 $conn = connect_db();
 
-// --- ส่วนจัดการรถพ่วง (Trailers) ---
+// --- ส่วนจัดการรถพ่วง (Trailers) - ใช้ตาราง vehicles ด้วย category_id สำหรับรถพ่วง ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['trailer_form'])) {
     $license_plate = $_POST['trailer_license_plate'];
     $status = $_POST['trailer_status'];
+    
+    // หา category_id สำหรับรถพ่วง
+    $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_code = 'TRAILER'");
+    $stmt_cat->execute();
+    $trailer_category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
+    $trailer_category_id = $trailer_category['category_id'] ?? 1;
+    
     if (isset($_POST['trailer_edit_id']) && $_POST['trailer_edit_id'] !== '') {
-        // UPDATE - ตรวจสอบว่าทะเบียนซ้ำกับรถพ่วงคันอื่นหรือไม่
-        $stmt_check = $conn->prepare("SELECT trailer_id FROM trailers WHERE trailer_name = ? AND trailer_id != ?");
+        // UPDATE - ตรวจสอบว่าทะเบียนซ้ำกับรถคันอื่นหรือไม่
+        $stmt_check = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE license_plate = ? AND vehicle_id != ? AND is_deleted = 0");
         $stmt_check->execute([$license_plate, $_POST['trailer_edit_id']]);
         if ($stmt_check->rowCount() > 0) {
-            echo "<script>alert('ทะเบียนรถพ่วงนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
+            echo "<script>alert('ทะเบียนรถนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
             exit;
         }
         
-        $stmt = $conn->prepare("UPDATE trailers SET trailer_name=?, status=? WHERE trailer_id=?");
+        $stmt = $conn->prepare("UPDATE vehicles SET license_plate=?, status=?, updated_at=GETDATE() WHERE vehicle_id=?");
         try {
             $stmt->execute([$license_plate, $status, $_POST['trailer_edit_id']]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
-                echo "<script>alert('ทะเบียนรถพ่วงนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
+                echo "<script>alert('ทะเบียนรถนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
             } else {
                 echo "<script>alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: " . addslashes($e->getMessage()) . "');window.history.back();</script>";
             }
@@ -30,19 +37,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['trailer_form'])) {
         }
     } else {
         // INSERT - ตรวจสอบทะเบียนซ้ำ
-        $stmt_check = $conn->prepare("SELECT trailer_id FROM trailers WHERE trailer_name = ?");
+        $stmt_check = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE license_plate = ? AND is_deleted = 0");
         $stmt_check->execute([$license_plate]);
         if ($stmt_check->rowCount() > 0) {
-            echo "<script>alert('ทะเบียนรถพ่วงนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
+            echo "<script>alert('ทะเบียนรถนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
             exit;
         }
         
-        $stmt = $conn->prepare("INSERT INTO trailers (trailer_name, status) VALUES (?, ?)");
+        $stmt = $conn->prepare("INSERT INTO vehicles (license_plate, category_id, status, created_at, updated_at) VALUES (?, ?, ?, GETDATE(), GETDATE())");
         try {
-            $stmt->execute([$license_plate, $status]);
+            $stmt->execute([$license_plate, $trailer_category_id, $status]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
-                echo "<script>alert('ทะเบียนรถพ่วงนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
+                echo "<script>alert('ทะเบียนรถนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
             } else {
                 echo "<script>alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: " . addslashes($e->getMessage()) . "');window.history.back();</script>";
             }
@@ -67,7 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
     $asset_tag = trim($_POST['asset_tag']);
     $vehicle_type = $_POST['vehicle_type'] === 'อื่นๆ' ? trim($_POST['vehicle_type_other']) : trim($_POST['vehicle_type']);
     $fuel_type = trim($_POST['fuel_type']);
-    $department = trim($_POST['department']);
     $status = trim($_POST['status']);
     $last_updated_by_employee_id = $_SESSION['employee_id'] ?? 1;
     $last_updated_at = date('Y-m-d H:i:s');
@@ -86,12 +92,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
             exit;
         }
         
-        $sql = "UPDATE vehicles SET license_plate=?, make=?, model=?, year=?, vin=?, engine_number=?, color=?, current_mileage=?, acquisition_date=?, asset_tag=?, vehicle_type=?, fuel_type=?, department=?, status=?, last_updated_by_employee_id=?, last_updated_at=?
+        $sql = "UPDATE vehicles SET license_plate=?, make=?, model=?, year=?, vin=?, engine_number=?, color=?, current_mileage=?, acquisition_date=?, asset_tag=?, vehicle_type=?, fuel_type=?, status=?, last_updated_by_employee_id=?, last_updated_at=?
                 WHERE vehicle_id=?";
         $stmt = $conn->prepare($sql);
         try {
             $stmt->execute([
-                $license_plate, $make, $model, $year, $vin, $engine_number, $color, $current_mileage, $acquisition_date, $asset_tag, $vehicle_type, $fuel_type, $department, $status, $last_updated_by_employee_id, $last_updated_at, $_POST['edit_id']
+                $license_plate, $make, $model, $year, $vin, $engine_number, $color, $current_mileage, $acquisition_date, $asset_tag, $vehicle_type, $fuel_type, $status, $last_updated_by_employee_id, $last_updated_at, $_POST['edit_id']
             ]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
@@ -110,12 +116,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
             exit;
         }
         
-        $sql = "INSERT INTO vehicles (license_plate, make, model, year, vin, engine_number, color, current_mileage, acquisition_date, asset_tag, vehicle_type, fuel_type, department, status, last_updated_by_employee_id, last_updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO vehicles (license_plate, make, model, year, vin, engine_number, color, current_mileage, acquisition_date, asset_tag, vehicle_type, fuel_type, status, last_updated_by_employee_id, last_updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
         try {
             $stmt->execute([
-                $license_plate, $make, $model, $year, $vin, $engine_number, $color, $current_mileage, $acquisition_date, $asset_tag, $vehicle_type, $fuel_type, $department, $status, $last_updated_by_employee_id, $last_updated_at
+                $license_plate, $make, $model, $year, $vin, $engine_number, $color, $current_mileage, $acquisition_date, $asset_tag, $vehicle_type, $fuel_type, $status, $last_updated_by_employee_id, $last_updated_at
             ]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
@@ -138,35 +144,47 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
-// ลบข้อมูลรถพ่วง
+// ลบข้อมูลรถพ่วง (ใช้ soft delete)
 if (isset($_GET['trailer_delete'])) {
-    $stmt = $conn->prepare("DELETE FROM trailers WHERE trailer_id=?");
+    $stmt = $conn->prepare("UPDATE vehicles SET is_deleted = 1, updated_at = GETDATE() WHERE vehicle_id=?");
     $stmt->execute([$_GET['trailer_delete']]);
     header("Location: index.php");
     exit;
 }
 
-// ดึงข้อมูลรถหลักและรถพ่วงรวมกัน
+// ดึงข้อมูลรถหลักและรถพ่วงรวมกัน จากตาราง vehicles เดียวกัน
 $vehicles = [];
-$stmt = $conn->query("SELECT *, 'vehicle' AS type FROM vehicles ORDER BY vehicle_id DESC");
+$stmt = $conn->query("
+    SELECT v.*, 
+           CASE WHEN vc.category_code = 'TRAILER' THEN 'trailer' ELSE 'vehicle' END AS type,
+           vc.category_name
+    FROM vehicles v 
+    LEFT JOIN vehicle_categories vc ON v.category_id = vc.category_id 
+    WHERE v.is_deleted = 0 
+    ORDER BY v.vehicle_id DESC
+");
 $vehicles = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$stmt = $conn->query("SELECT trailer_id AS vehicle_id, trailer_name AS license_plate, '' AS make, '' AS model, '' AS year, '' AS vin, '' AS engine_number, '' AS color, '' AS current_mileage, '' AS acquisition_date, '' AS asset_tag, '' AS vehicle_type, '' AS fuel_type, status, 'trailer' AS type FROM trailers ORDER BY trailer_id DESC");
-$trailers_as_vehicles = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$vehicles = array_merge($vehicles, $trailers_as_vehicles);
-$vehicles = array_reverse($vehicles); // ให้รถพ่วงใหม่อยู่บนสุดเหมือนรถหลัก
 
 // ดึงข้อมูลรถที่จะแก้ไข (ถ้ามี)
 $edit_vehicle = null;
 if (isset($_GET['edit'])) {
-    $stmt = $conn->prepare("SELECT * FROM vehicles WHERE vehicle_id=?");
+    $stmt = $conn->prepare("SELECT * FROM vehicles WHERE vehicle_id=? AND is_deleted = 0");
     $stmt->execute([$_GET['edit']]);
     $edit_vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-$trailers = $conn->query("SELECT * FROM trailers ORDER BY trailer_id DESC")->fetchAll(PDO::FETCH_ASSOC);
+// ดึงข้อมูลรถพ่วงสำหรับฟอร์มแก้ไข
+$trailers = $conn->query("
+    SELECT v.*, vc.category_name 
+    FROM vehicles v 
+    LEFT JOIN vehicle_categories vc ON v.category_id = vc.category_id 
+    WHERE vc.category_code = 'TRAILER' AND v.is_deleted = 0 
+    ORDER BY v.vehicle_id DESC
+")->fetchAll(PDO::FETCH_ASSOC);
+
 $edit_trailer = null;
 if (isset($_GET['trailer_edit'])) {
-    $stmt = $conn->prepare("SELECT * FROM trailers WHERE trailer_id=?");
+    $stmt = $conn->prepare("SELECT * FROM vehicles WHERE vehicle_id=? AND is_deleted = 0");
     $stmt->execute([$_GET['trailer_edit']]);
     $edit_trailer = $stmt->fetch(PDO::FETCH_ASSOC);
 }
@@ -238,7 +256,7 @@ if (isset($_GET['trailer_edit'])) {
                         <th class="px-4 py-3 text-left font-bold">รุ่น</th>
                         <th class="px-4 py-3 text-left font-bold">ปี</th>
                         <th class="px-4 py-3 text-left font-bold">เลขไมล์</th>
-                        <th class="px-4 py-3 text-left font-bold">สังกัด</th>
+                        <!-- Department column removed as field doesn't exist in database -->
                         <th class="px-4 py-3 text-left font-bold">สถานะ</th>
                         <th class="px-4 py-3 text-left font-bold">จัดการ</th>
                     </tr>
@@ -269,7 +287,7 @@ if (isset($_GET['trailer_edit'])) {
                         <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['model']) : '-' ?></td>
                         <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['year']) : '-' ?></td>
                         <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['current_mileage']) : '-' ?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['department']) : '-' ?></td>
+                        <!-- Department cell removed as field doesn't exist in database -->
                         <td class="px-4 py-2">
                             <?php
                             if ($v['status'] === 'active') echo 'ใช้งาน';
@@ -406,10 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <label class="block font-semibold mb-2">ชนิดน้ำมัน</label>
                             <input type="text" name="fuel_type" id="fuel_type" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
                         </div>
-                        <div>
-                            <label class="block font-semibold mb-2">สังกัด</label>
-                            <input type="text" name="department" id="department" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
-                        </div>
+                        <!-- Department field removed as it doesn't exist in database -->
                         <div>
                             <label class="block font-semibold mb-2">สถานะ</label>
                             <select name="status" id="status" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
@@ -491,7 +506,7 @@ function editVehicle(data) {
     document.getElementById('asset_tag').value = data.asset_tag || '';
     document.getElementById('vehicle_type').value = data.vehicle_type || '';
     document.getElementById('fuel_type').value = data.fuel_type || '';
-    document.getElementById('department').value = data.department || '';
+    // Department field removed as it doesn't exist in database
     document.getElementById('status').value = data.status || 'active';
     document.getElementById('vehicleModal').classList.remove('hidden');
     isSubmitting = false;

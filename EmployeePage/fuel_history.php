@@ -6,7 +6,7 @@ $conn = connect_db();
 
 // --- SQL Query: Combine and use LIMIT 1 for MySQL ---
 function getFuelRecords($conn, $role, $employee_id = null) {
-    $baseSelect = "SELECT f.*, v.license_plate, v.department, v.current_mileage AS main_current_mileage, e.first_name, e.last_name,
+    $baseSelect = "SELECT f.*, v.license_plate, v.current_mileage AS main_current_mileage, e.first_name, e.last_name,
         t.license_plate AS trailer_license_plate, t.current_mileage AS trailer_current_mileage,
         (SELECT file_path FROM fuel_receipt_attachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'gauge_before') AS gauge_before_img,
         (SELECT file_path FROM fuel_receipt_attachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'gauge_after') AS gauge_after_img,
@@ -54,21 +54,10 @@ $records = getFuelRecords($conn, $role, $employee_id);
     <div class="flex flex-col md:flex-row gap-4 mb-6 justify-between items-center">
         <input id="searchInput" type="text" placeholder="ค้นหาทะเบียนรถ, สถานะ, หรือหมายเหตุ" class="rounded-lg px-4 py-2 w-full md:w-1/5 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:ring-2 focus:ring-[#4ade80]">
         <?php
-        // ดึงรายการสังกัดที่มีในข้อมูล
-        if ($role === 'admin' || $role === 'manager') {
-            $departments = $conn->query("SELECT DISTINCT v.department FROM fuel_records f JOIN vehicles v ON f.vehicle_id = v.vehicle_id WHERE v.department IS NOT NULL AND v.department <> '' ORDER BY v.department ASC")->fetchAll(PDO::FETCH_COLUMN);
-        } else {
-            $stmt = $conn->prepare("SELECT DISTINCT v.department FROM fuel_records f JOIN vehicles v ON f.vehicle_id = v.vehicle_id WHERE f.recorded_by_employee_id = ? AND v.department IS NOT NULL AND v.department <> '' ORDER BY v.department ASC");
-            $stmt->execute([$employee_id]);
-            $departments = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        }
+        // Department filter removed as the field doesn't exist in the database
+        $departments = [];
         ?>
-        <select id="departmentFilter" class="rounded-lg px-4 py-2 w-full md:w-1/5 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:ring-2 focus:ring-[#4ade80]">
-            <option value="">ทุกสังกัด</option>
-            <?php foreach ($departments as $dept): ?>
-                <option value="<?=htmlspecialchars($dept)?>"><?=htmlspecialchars($dept)?></option>
-            <?php endforeach; ?>
-        </select>
+        <!-- Department filter removed as field doesn't exist in database -->
         <input id="dateStart" type="date" class="rounded-lg px-4 py-2 w-full md:w-1/5 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:ring-2 focus:ring-[#4ade80]" placeholder="วันที่เริ่มต้น">
         <input id="dateEnd" type="date" class="rounded-lg px-4 py-2 w-full md:w-1/5 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:ring-2 focus:ring-[#4ade80]" placeholder="วันที่สิ้นสุด">
         <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'manager'): ?>
@@ -98,7 +87,7 @@ $records = getFuelRecords($conn, $role, $employee_id);
                     <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'manager'): ?>
                         <th class="px-4 py-3 text-left font-bold">ผู้ทำรายการ</th>
                     <?php endif; ?>
-                    <th class="px-4 py-3 text-left font-bold">สังกัด</th>
+                    <!-- Department column removed as field doesn't exist in database -->
                     <th class="px-4 py-3 text-left font-bold">สถานะ</th>
                     <th class="px-4 py-3 text-left font-bold">หมายเหตุ</th>
                 </tr>
@@ -119,7 +108,7 @@ $records = getFuelRecords($conn, $role, $employee_id);
                             ?>
                         </td>
                     <?php endif; ?>
-                    <td class="px-4 py-2"><?=htmlspecialchars($rec['department'] ?? '-')?></td>
+                    <!-- Department cell removed as field doesn't exist in database -->
                     <td class="px-4 py-2">
                         <?php
                         $statusText = '';
@@ -337,33 +326,28 @@ function getNotesDisplay(notes, status) {
 
 // ฟิลเตอร์ตาราง
 const searchInput = document.getElementById('searchInput');
-const departmentFilter = document.getElementById('departmentFilter');
 const dateStart = document.getElementById('dateStart');
 const dateEnd = document.getElementById('dateEnd');
 const table = document.getElementById('fuelTable');
 searchInput.addEventListener('input', filterTable);
-departmentFilter.addEventListener('change', filterTable);
 dateStart.addEventListener('change', filterTable);
 dateEnd.addEventListener('change', filterTable);
 
 function filterTable() {
     const search = searchInput.value.toLowerCase();
-    const department = departmentFilter.value;
     const start = dateStart.value;
     const end = dateEnd.value;
     let visibleCount = 0;
     
     for (const row of table.tBodies[0].rows) {
         const plate = row.cells[1].innerText.toLowerCase();
-        const dept = row.cells[<?= $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'manager' ? '3' : '2' ?>].innerText;
-        const status = row.cells[<?= $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'manager' ? '4' : '3' ?>].innerText.toLowerCase();
-        const notes = row.cells[<?= $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'manager' ? '5' : '4' ?>].innerText.toLowerCase();
+        const status = row.cells[<?= $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'manager' ? '3' : '2' ?>].innerText.toLowerCase();
+        const notes = row.cells[<?= $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'manager' ? '4' : '3' ?>].innerText.toLowerCase();
         const dateText = row.cells[0].innerText.slice(0, 10); // yyyy-mm-dd
         let show = true;
         
         // ค้นหาในทะเบียนรถ, สถานะ, หมายเหตุ
         if (search && !(plate.includes(search) || status.includes(search) || notes.includes(search))) show = false;
-        if (department && dept !== department) show = false;
         if (start && dateText < start) show = false;
         if (end && dateText > end) show = false;
         row.style.display = show ? '' : 'none';
@@ -371,16 +355,15 @@ function filterTable() {
     }
     
     // แสดงสถานะตัวกรอง
-    updateFilterStatus(search, department, start, end, visibleCount);
+    updateFilterStatus(search, start, end, visibleCount);
 }
 
-function updateFilterStatus(search, department, start, end, visibleCount) {
+function updateFilterStatus(search, start, end, visibleCount) {
     const filterStatus = document.getElementById('filterStatus');
     const filterStatusText = document.getElementById('filterStatusText');
     
     let statusMessages = [];
     if (search) statusMessages.push(`ค้นหา: "${search}"`);
-    if (department) statusMessages.push(`สังกัด: ${department}`);
     if (start || end) {
         const dateRange = start && end ? `${start} ถึง ${end}` : 
                          start ? `ตั้งแต่ ${start}` : `จนถึง ${end}`;
