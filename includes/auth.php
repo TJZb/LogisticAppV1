@@ -153,19 +153,36 @@ function require_login() {
 }
 
 /**
- * ฟังก์ชันสำหรับการตรวจสอบสิทธิ์ตามบทบาท
+ * ฟังก์ชันสำหรับการตรวจสอบสิทธิ์ตามบทบาท (auth function)
  */
-function require_role($required_roles) {
-    require_login();
+function auth($required_roles = []) {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     
+    // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่
+    if (!check_session()) {
+        header('Location: ../login.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
+        exit();
+    }
+    
+    // ถ้าไม่ระบุ role ให้ผ่านได้ทุก role ที่ login แล้ว
+    if (empty($required_roles)) {
+        return true;
+    }
+    
+    // แปลงเป็น array ถ้าส่งมาเป็น string
     if (!is_array($required_roles)) {
         $required_roles = [$required_roles];
     }
     
+    // ตรวจสอบสิทธิ์
     if (!in_array($_SESSION['role'], $required_roles)) {
-        header('Location: /index.php?error=access_denied');
+        header('Location: ../index.php?error=access_denied');
         exit();
     }
+    
+    return true;
 }
 
 /**

@@ -2,7 +2,6 @@
 require_once __DIR__ . '/../service/connect.php';
 require_once __DIR__ . '/../includes/auth.php';
 auth(['employee', 'manager', 'admin']);
-session_start();
 $conn = connect_db();
 
 // --- SQL Query: Combine and use LIMIT 1 for MySQL ---

@@ -1,5 +1,4 @@
 <?php
-session_start();
 // filepath: /workspaces/logisticApp/AdminPage/user_manage.php
 require_once __DIR__ . '/../service/connect.php';
 require_once __DIR__ . '/../includes/auth.php';

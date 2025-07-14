@@ -6,8 +6,6 @@
     auth(['employee', 'manager', 'admin']);
     $conn = connect_db();
 
-    session_start();
-
     // ฟังก์ชันสำหรับลดขนาดและปรับปรุงรูปภาพ
     function resizeImage($sourcePath, $targetPath, $maxWidth = 1200, $maxHeight = 1200, $quality = 85) {
         $imageInfo = getimagesize($sourcePath);
