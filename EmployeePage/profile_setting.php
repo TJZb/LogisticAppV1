@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../service/connect.php';
-require_once __DIR__ . '/../service/auth.php';
+require_once __DIR__ . '/../includes/auth.php';
 auth(['employee', 'manager', 'admin']);
 
 $conn = connect_db();

@@ -12,16 +12,28 @@ require_once __DIR__ . '/../includes/functions.php';
  */
 function connect_db() {
     try {
-        $dsn = "sqlsrv:Server=" . DB_HOST . ";Database=" . DB_NAME . ";TrustServerCertificate=true";
-        $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8
-        ]);
+        // ตรวจสอบว่ามี driver หรือไม่
+        $available_drivers = PDO::getAvailableDrivers();
+        
+        if (in_array('sqlsrv', $available_drivers)) {
+            // ใช้ SQL Server driver
+            $dsn = "sqlsrv:Server=" . DB_HOST . ";Database=" . DB_NAME . ";TrustServerCertificate=true";
+            $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+        } else {
+            // ถ้าไม่มี SQL Server driver ให้แสดงข้อผิดพลาด
+            throw new Exception("SQL Server driver ไม่พร้อมใช้งาน. Available drivers: " . implode(', ', $available_drivers));
+        }
+        
         return $pdo;
     } catch (PDOException $e) {
-        log_activity('DATABASE_ERROR', $e->getMessage());
-        die("Connection failed: " . $e->getMessage());
+        error_log("Database connection error: " . $e->getMessage());
+        die("ไม่สามารถเชื่อมต่อฐานข้อมูลได้: " . $e->getMessage());
+    } catch (Exception $e) {
+        error_log("Database driver error: " . $e->getMessage());
+        die("ข้อผิดพลาดระบบฐานข้อมูล: " . $e->getMessage());
     }
 }
 

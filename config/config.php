@@ -9,6 +9,7 @@ define('DB_HOST', '192.168.50.123');
 define('DB_NAME', 'logistic_app_db');
 define('DB_USER', 'sa');
 define('DB_PASS', 'P@ssw0rd');
+define('DB_TYPE', 'sqlsrv'); // ประเภทฐานข้อมูล
 
 // การตั้งค่าเซสชัน
 define('SESSION_TIMEOUT', 3600); // 1 ชั่วโมง
