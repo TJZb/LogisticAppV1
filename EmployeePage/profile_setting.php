@@ -8,9 +8,9 @@ $conn = connect_db();
 $user_id = $_SESSION['user_id'] ?? null;
 
 // ดึงข้อมูล user และ employee
-$stmt = $conn->prepare("SELECT u.username, e.first_name, e.last_name, e.email, e.phone
-    FROM Users u
-    LEFT JOIN Employees e ON u.employee_id = e.employee_id
+$stmt = $conn->prepare("SELECT u.username, e.first_name, e.last_name, e.email, e.phone_number
+    FROM users u
+    LEFT JOIN employees e ON u.employee_id = e.employee_id
     WHERE u.user_id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_field'])) {
         $old = $_POST['old_password'] ?? '';
         $new = $_POST['new_password'] ?? '';
         $confirm = $_POST['confirm_password'] ?? '';
-        $stmt = $conn->prepare("SELECT password_hash FROM Users WHERE user_id=?");
+        $stmt = $conn->prepare("SELECT password_hash FROM users WHERE user_id=?");
         $stmt->execute([$user_id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!password_verify($old, $row['password_hash'])) {
@@ -32,22 +32,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_field'])) {
         } elseif (strlen($new) < 6) {
             $msg = "รหัสผ่านใหม่ควรมีอย่างน้อย 6 ตัวอักษร";
         } else {
-            $stmt = $conn->prepare("UPDATE Users SET password_hash=? WHERE user_id=?");
+            $stmt = $conn->prepare("UPDATE users SET password_hash=? WHERE user_id=?");
             $stmt->execute([password_hash($new, PASSWORD_DEFAULT), $user_id]);
             $msg = "เปลี่ยนรหัสผ่านสำเร็จ";
         }
     } else {
         $value = $_POST['value'] ?? '';
-        if (in_array($field, ['first_name', 'last_name', 'email', 'phone'])) {
-            $stmt = $conn->prepare("UPDATE Employees SET $field=? WHERE employee_id=(SELECT employee_id FROM Users WHERE user_id=?)");
+        if (in_array($field, ['first_name', 'last_name', 'email', 'phone_number'])) {
+            // สำหรับ phone ต้องใช้ phone_number ในฐานข้อมูล
+            $db_field = ($field === 'phone') ? 'phone_number' : $field;
+            $stmt = $conn->prepare("UPDATE employees SET $db_field=? WHERE employee_id=(SELECT employee_id FROM users WHERE user_id=?)");
             $stmt->execute([$value, $user_id]);
             $msg = "บันทึกข้อมูลสำเร็จ";
         }
     }
     // อัปเดตข้อมูลใหม่
-    $stmt = $conn->prepare("SELECT u.username, e.first_name, e.last_name, e.email, e.phone
-        FROM Users u
-        LEFT JOIN Employees e ON u.employee_id = e.employee_id
+    $stmt = $conn->prepare("SELECT u.username, e.first_name, e.last_name, e.email, e.phone_number
+        FROM users u
+        LEFT JOIN employees e ON u.employee_id = e.employee_id
         WHERE u.user_id = ?");
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -121,13 +123,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_field'])) {
                         </div>
                     <?php else: ?>
                         <div class="bg-[#111827] rounded-lg px-3 py-2 mt-1">
-                            <?= htmlspecialchars($user[$f['key']] ?? '') ?>
+                            <?php 
+                            // สำหรับ phone ต้องใช้ phone_number จากฐานข้อมูล
+                            $display_key = ($f['key'] === 'phone') ? 'phone_number' : $f['key'];
+                            echo htmlspecialchars($user[$display_key] ?? '');
+                            ?>
                         </div>
                     <?php endif; ?>
                 </div>
                 <div class="ml-2">
                     <?php if (empty($f['readonly'])): ?>
-                    <button onclick="showEdit('<?= $f['key'] ?>', '<?= htmlspecialchars($user[$f['key']] ?? '', ENT_QUOTES) ?>')" class="bg-[#374151] hover:bg-[#60a5fa] text-[#e0e0e0] px-4 py-1 rounded-lg transition-all duration-150">แก้ไข</button>
+                    <?php 
+                    // สำหรับ phone ต้องใช้ phone_number จากฐานข้อมูล
+                    $edit_value = ($f['key'] === 'phone') ? ($user['phone_number'] ?? '') : ($user[$f['key']] ?? '');
+                    ?>
+                    <button onclick="showEdit('<?= $f['key'] ?>', '<?= htmlspecialchars($edit_value, ENT_QUOTES) ?>')" class="bg-[#374151] hover:bg-[#60a5fa] text-[#e0e0e0] px-4 py-1 rounded-lg transition-all duration-150">แก้ไข</button>
                     <?php endif; ?>
                 </div>
             </div>

@@ -16,8 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $employee_code = $_POST['employee_code'];
 
     if (isset($_POST['edit_id']) && $_POST['edit_id'] !== '') {
-        // UPDATE Employees
-        $sql = "UPDATE Employees SET first_name=?, last_name=?, email=?, phone_number=?, job_title=?, driver_license_number=?, license_expiry_date=?, employee_code=?
+        // UPDATE employees
+        $sql = "UPDATE employees SET first_name=?, last_name=?, email=?, phone_number=?, job_title=?, driver_license_number=?, license_expiry_date=?, employee_code=?
                 WHERE employee_id=?";
         $stmt = $conn->prepare($sql);
         $stmt->execute([
@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_POST['edit_id']
         ]);
         // อัปเดต username ใน Users ให้ตรงกับ employee_code ใหม่
-        $stmt = $conn->prepare("UPDATE Users SET username=? WHERE employee_id=?");
+        $stmt = $conn->prepare("UPDATE users SET username=? WHERE employee_id=?");
         $stmt->execute([
             $employee_code,
             $_POST['edit_id']
@@ -73,11 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ลบข้อมูล
 if (isset($_GET['delete'])) {
-    // ลบ Users ที่อ้างถึง employee_id นี้ก่อน
-    $stmt = $conn->prepare("DELETE FROM Users WHERE employee_id=?");
+    // ลบ users ที่อ้างถึง employee_id นี้ก่อน
+    $stmt = $conn->prepare("DELETE FROM users WHERE employee_id=?");
     $stmt->execute([$_GET['delete']]);
-    // ลบ Employees
-    $stmt = $conn->prepare("DELETE FROM Employees WHERE employee_id=?");
+    // ลบ employees
+    $stmt = $conn->prepare("DELETE FROM employees WHERE employee_id=?");
     $stmt->execute([$_GET['delete']]);
     header("Location: employee.php");
     exit;
@@ -85,13 +85,13 @@ if (isset($_GET['delete'])) {
 
 // ปิด/เปิดใช้งานผู้ใช้
 if (isset($_GET['deactivate'])) {
-    $stmt = $conn->prepare("UPDATE Users SET active=0 WHERE employee_id=?");
+    $stmt = $conn->prepare("UPDATE users SET active=0 WHERE employee_id=?");
     $stmt->execute([$_GET['deactivate']]);
     header("Location: employee.php");
     exit;
 }
 if (isset($_GET['activate'])) {
-    $stmt = $conn->prepare("UPDATE Users SET active=1 WHERE employee_id=?");
+    $stmt = $conn->prepare("UPDATE users SET active=1 WHERE employee_id=?");
     $stmt->execute([$_GET['activate']]);
     header("Location: employee.php");
     exit;
@@ -100,7 +100,7 @@ if (isset($_GET['activate'])) {
 // ดึงข้อมูลพนักงานทั้งหมด พร้อมสถานะจาก Users
 $stmt = $conn->query("
     SELECT e.*, u.active 
-    FROM Employees e 
+    FROM employees e 
     LEFT JOIN Users u ON e.employee_id = u.employee_id 
     ORDER BY e.employee_id DESC
 ");
@@ -109,7 +109,7 @@ $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // ดึงข้อมูลพนักงานที่จะแก้ไข (ถ้ามี)
 $edit_employee = null;
 if (isset($_GET['edit'])) {
-    $stmt = $conn->prepare("SELECT * FROM Employees WHERE employee_id=?");
+    $stmt = $conn->prepare("SELECT * FROM employees WHERE employee_id=?");
     $stmt->execute([$_GET['edit']]);
     $edit_employee = $stmt->fetch(PDO::FETCH_ASSOC);
 }

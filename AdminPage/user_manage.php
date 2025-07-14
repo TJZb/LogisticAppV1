@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $role = $_POST['role'];
         $employee_id = !empty($_POST['employee_id']) ? $_POST['employee_id'] : null;
         $active = isset($_POST['active']) ? 1 : 0;
-        $sql = "UPDATE Users SET role=?, employee_id=?, active=?";
+        $sql = "UPDATE users SET role=?, employee_id=?, active=?";
         $params = [$role, $employee_id, $active];
         if (!empty($_POST['password'])) {
             $sql .= ", password_hash=?";
@@ -36,18 +36,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = "แก้ไขข้อมูลผู้ใช้สำเร็จ";
     }
     if (isset($_POST['delete_user']) && isset($_POST['user_id'])) {
-        $stmt = $conn->prepare("DELETE FROM Users WHERE user_id=?");
+        $stmt = $conn->prepare("DELETE FROM users WHERE user_id=?");
         $stmt->execute([$_POST['user_id']]);
         $msg = "ลบผู้ใช้สำเร็จ";
     }
 }
 
 // ดึงข้อมูล user ทั้งหมด
-$stmt = $conn->query("SELECT u.*, e.first_name, e.last_name FROM Users u LEFT JOIN Employees e ON u.employee_id = e.employee_id ORDER BY u.user_id");
+$stmt = $conn->query("SELECT u.*, e.first_name, e.last_name FROM users u LEFT JOIN employees e ON u.employee_id = e.employee_id ORDER BY u.user_id");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // ดึงรายชื่อพนักงานสำหรับเลือกผูก user
-$emps = $conn->query("SELECT employee_id, first_name, last_name FROM Employees ORDER BY first_name, last_name")->fetchAll(PDO::FETCH_ASSOC);
+$emps = $conn->query("SELECT employee_id, first_name, last_name FROM employees ORDER BY first_name, last_name")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <?php include '../container/header.php'; ?>
 <!DOCTYPE html>
