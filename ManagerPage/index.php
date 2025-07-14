@@ -433,10 +433,10 @@ if (isset($_GET['trailer_edit'])) {
 
         <!-- Add Vehicle Modal -->
         <div id="vehicleModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-            <div class="bg-white rounded-xl p-8 m-4 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-[#1f2937] rounded-xl p-8 m-4 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[#374151]">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 id="vehicleModalTitle" class="text-2xl font-bold text-gray-800">เพิ่มรถใหม่</h2>
-                    <button onclick="closeVehicleModal()" class="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+                    <h2 id="vehicleModalTitle" class="text-2xl font-bold text-[#f9fafb]">เพิ่มรถใหม่</h2>
+                    <button onclick="closeVehicleModal()" class="text-[#9ca3af] hover:text-[#f87171] text-2xl transition-colors">✕</button>
                 </div>
                 
                 <form id="vehicleForm" method="post" class="space-y-6">
@@ -444,19 +444,19 @@ if (isset($_GET['trailer_edit'])) {
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ทะเบียนรถ</label>
-                            <input type="text" name="license_plate" id="license_plate" placeholder="กข-1234" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ทะเบียนรถ</label>
+                            <input type="text" name="license_plate" id="license_plate" placeholder="กข-1234" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" required>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">จังหวัด</label>
-                            <input type="text" name="province" id="province" placeholder="กรุงเทพมหานคร" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">จังหวัด</label>
+                            <input type="text" name="province" id="province" placeholder="กรุงเทพมหานคร" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
                         </div>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ยี่ห้อ</label>
-                            <select name="make" id="make" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ยี่ห้อ</label>
+                            <select name="make" id="make" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" required>
                                 <option value="">เลือกยี่ห้อ</option>
                                 <option value="Isuzu">Isuzu</option>
                                 <option value="Hino">Hino</option>
@@ -472,19 +472,19 @@ if (isset($_GET['trailer_edit'])) {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">รุ่น</label>
-                            <input type="text" name="model" id="model" placeholder="FRR 90 N" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">รุ่น</label>
+                            <input type="text" name="model" id="model" placeholder="FRR 90 N" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" required>
                         </div>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ปีที่ผลิต</label>
-                            <input type="number" name="year" id="year" placeholder="2023" min="1990" max="2025" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ปีที่ผลิต</label>
+                            <input type="number" name="year" id="year" placeholder="2023" min="1990" max="2025" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" required>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทรถ</label>
-                            <select name="vehicle_type" id="vehicle_type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ประเภทรถ</label>
+                            <select name="vehicle_type" id="vehicle_type" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" required>
                                 <option value="">เลือกประเภท</option>
                                 <option value="รถบรรทุก">รถบรรทุก</option>
                                 <option value="รถถังน้ำมัน">รถถังน้ำมัน</option>
@@ -495,25 +495,25 @@ if (isset($_GET['trailer_edit'])) {
                                 <option value="10 ล้อ">10 ล้อ</option>
                                 <option value="อื่นๆ">อื่น ๆ</option>
                             </select>
-                            <input type="text" name="vehicle_type_other" id="vehicle_type_other" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mt-2 hidden" placeholder="ระบุประเภทรถ...">
+                            <input type="text" name="vehicle_type_other" id="vehicle_type_other" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] mt-2 hidden transition-colors" placeholder="ระบุประเภทรถ...">
                         </div>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">VIN / เลขตัวถัง</label>
-                            <input type="text" name="vin" id="vin" placeholder="1HGBH41JXMN109186" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">VIN / เลขตัวถัง</label>
+                            <input type="text" name="vin" id="vin" placeholder="1HGBH41JXMN109186" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">สี</label>
-                            <input type="text" name="color" id="color" placeholder="ขาว" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">สี</label>
+                            <input type="text" name="color" id="color" placeholder="ขาว" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
                         </div>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ชนิดน้ำมัน</label>
-                            <select name="fuel_type" id="fuel_type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ชนิดน้ำมัน</label>
+                            <select name="fuel_type" id="fuel_type" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
                                 <option value="">เลือกชนิดน้ำมัน</option>
                                 <option value="ดีเซล">ดีเซล</option>
                                 <option value="เบนซิน">เบนซิน</option>
@@ -523,8 +523,8 @@ if (isset($_GET['trailer_edit'])) {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">สถานะ</label>
-                            <select name="status" id="status" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">สถานะ</label>
+                            <select name="status" id="status" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
                                 <option value="active">ใช้งาน</option>
                                 <option value="maintenance">ซ่อมบำรุง</option>
                                 <option value="inactive">ไม่ใช้งาน</option>
@@ -533,15 +533,15 @@ if (isset($_GET['trailer_edit'])) {
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
-                        <textarea name="vehicle_description" id="vehicle_description" rows="3" placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับรถ..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                        <label class="block text-sm font-medium text-[#e5e7eb] mb-2">หมายเหตุ</label>
+                        <textarea name="vehicle_description" id="vehicle_description" rows="3" placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับรถ..." class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors resize-none"></textarea>
                     </div>
                     
                     <div class="flex gap-4 pt-4">
-                        <button type="submit" id="vehicleSubmitBtn" class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-lg font-medium hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                        <button type="submit" id="vehicleSubmitBtn" class="flex-1 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white py-3 rounded-lg font-medium hover:shadow-lg hover:shadow-[#4f46e5]/20 hover:-translate-y-1 transition-all duration-300 focus:ring-2 focus:ring-[#4f46e5] focus:ring-offset-2 focus:ring-offset-[#1f2937]">
                             บันทึกข้อมูล
                         </button>
-                        <button type="button" onclick="closeVehicleModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                        <button type="button" onclick="closeVehicleModal()" class="flex-1 bg-[#374151] text-[#e5e7eb] py-3 rounded-lg font-medium hover:bg-[#4b5563] transition-colors focus:ring-2 focus:ring-[#6b7280] focus:ring-offset-2 focus:ring-offset-[#1f2937]">
                             ยกเลิก
                         </button>
                     </div>
