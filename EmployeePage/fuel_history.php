@@ -1,13 +1,9 @@
 <?php
 require_once __DIR__ . '/../service/connect.php';
+require_once __DIR__ . '/../includes/auth.php';
+auth(['employee', 'manager', 'admin']);
 session_start();
 $conn = connect_db();
-
-// --- Security: Check session and role ---
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'manager', 'employee'])) {
-    header('Location: ../login.php');
-    exit();
-}
 
 // --- SQL Query: Combine and use LIMIT 1 for MySQL ---
 function getFuelRecords($conn, $role, $employee_id = null) {

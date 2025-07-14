@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../service/connect.php';
+require_once __DIR__ . '/../includes/auth.php';
+auth(['manager', 'admin']);
 $conn = connect_db();
 
 // ดึงรายการ FuelRecords ที่รออนุมัติ (status = 'pending')

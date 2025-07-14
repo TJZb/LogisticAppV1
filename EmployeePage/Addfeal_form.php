@@ -2,6 +2,8 @@
     $uploadDir = __DIR__ . '/../uploads/'; // กำหนด path โฟลเดอร์หลักฐานไว้ที่เดียว
 
     require_once __DIR__ . '/../service/connect.php';
+    require_once __DIR__ . '/../includes/auth.php';
+    auth(['employee', 'manager', 'admin']);
     $conn = connect_db();
 
     session_start();
