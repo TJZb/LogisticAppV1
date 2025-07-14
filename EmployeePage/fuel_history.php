@@ -6,8 +6,8 @@ $conn = connect_db();
 
 // --- SQL Query: Combine and use LIMIT 1 for MySQL ---
 function getFuelRecords($conn, $role, $employee_id = null) {
-    $baseSelect = "SELECT f.*, v.license_plate, v.current_mileage AS main_current_mileage, e.first_name, e.last_name,
-        t.license_plate AS trailer_license_plate, t.current_mileage AS trailer_current_mileage,
+    $baseSelect = "SELECT f.*, v.license_plate, e.first_name, e.last_name,
+        t.license_plate AS trailer_license_plate,
         (SELECT file_path FROM fuel_receipt_attachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'gauge_before') AS gauge_before_img,
         (SELECT file_path FROM fuel_receipt_attachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'gauge_after') AS gauge_after_img,
         (SELECT file_path FROM fuel_receipt_attachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'receipt' ) AS receipt_file
@@ -178,10 +178,10 @@ const records = <?= json_encode($records, JSON_UNESCAPED_UNICODE) ?>;
 function showDetail(idx) {
     const rec = records[idx];
     let liters = '-';
-    if (rec.total_cost && rec.cost_per_liter && Number(rec.cost_per_liter) > 0) {
-        liters = (Number(rec.total_cost) / Number(rec.cost_per_liter)).toFixed(2);
-    } else if (rec.liters) {
-        liters = escapeHtml(rec.liters);
+    if (rec.total_cost && rec.price_per_liter && Number(rec.price_per_liter) > 0) {
+        liters = (Number(rec.total_cost) / Number(rec.price_per_liter)).toFixed(2);
+    } else if (rec.volume_liters) {
+        liters = escapeHtml(rec.volume_liters);
     }
 
     // หลักฐานแนวนอน ขนาดเล็ก คลิกดูใหญ่
@@ -235,13 +235,10 @@ function showDetail(idx) {
         <div class="mb-2"><span class="font-semibold">วันที่:</span> ${formatDate(rec.fuel_date)}</div>
         <div class="mb-2"><span class="font-semibold">ทะเบียนรถ:</span> ${escapeHtml(rec.license_plate)}</div>
         ${rec.trailer_license_plate ? `<div class=\"mb-2\"><span class=\"font-semibold text-yellow-400\">รถพ่วง:</span> ${escapeHtml(rec.trailer_license_plate)}</div>` : ''}
-        <div class="mb-2"><span class="font-semibold">เลขไมล์ (ขณะเติม):</span> ${escapeHtml(rec.mileage_at_fuel)}</div>
-        ${rec.trailer_license_plate && rec.trailer_mileage_at_fuel ? `<div class=\"mb-2\"><span class=\"font-semibold text-yellow-400\">เลขไมล์รถพ่วง (ขณะเติม):</span> ${escapeHtml(rec.trailer_mileage_at_fuel)}</div>` : ''}
-        <div class="mb-2"><span class="font-semibold">เลขไมล์ปัจจุบัน (รถหลัก):</span> ${escapeHtml(rec.main_current_mileage ?? '-')}</div>
-        ${rec.trailer_license_plate ? `<div class=\"mb-2\"><span class=\"font-semibold text-yellow-400\">เลขไมล์ปัจจุบัน (รถพ่วง):</span> ${escapeHtml(rec.trailer_current_mileage ?? '-')}</div>` : ''}
+        <div class="mb-2"><span class="font-semibold">เลขไมล์ (ขณะเติม):</span> ${escapeHtml(rec.odometer_reading ?? '-')}</div>
         <div class="mb-2"><span class="font-semibold">ชนิดน้ำมัน:</span> ${escapeHtml(rec.fuel_type ?? '-')}</div>
         <div class="mb-2"><span class="font-semibold">จำนวนที่เติม (ลิตร):</span> ${liters}</div>
-        <div class="mb-2"><span class="font-semibold">ราคาต่อหน่วย:</span> ${escapeHtml(rec.cost_per_liter ?? '-')}</div>
+        <div class="mb-2"><span class="font-semibold">ราคาต่อหน่วย:</span> ${escapeHtml(rec.price_per_liter ?? '-')}</div>
         <div class="mb-2"><span class="font-semibold">ราคารวม:</span> ${escapeHtml(rec.total_cost ?? '-')}</div>
         ${rec.first_name ? `<div class=\"mb-2\"><span class=\"font-semibold\">ผู้บันทึก:</span> ${escapeHtml(rec.first_name + ' ' + rec.last_name)}</div>` : ''}
         <div class="mb-2"><span class="font-semibold">สถานะ:</span> ${getStatusDisplay(rec.status)}</div>
@@ -512,28 +509,28 @@ function getExcelData() {
             const d = new Date(rec.fuel_date);
             const date = isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
             const time = isNaN(d) ? '' : String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-            const mileage = rec.mileage_at_fuel ?? '';
+            const mileage = rec.odometer_reading ?? '';
             const fuelType = rec.fuel_type ?? '';
-            const costPerLiter = rec.cost_per_liter ?? '';
+            const costPerLiter = rec.price_per_liter ?? '';
             
             let liters = '';
-            if (rec.total_cost && rec.cost_per_liter && Number(rec.cost_per_liter) > 0) {
-                liters = (Number(rec.total_cost) / Number(rec.cost_per_liter)).toFixed(2);
-            } else if (rec.liters) {
-                liters = rec.liters;
+            if (rec.total_cost && rec.price_per_liter && Number(rec.price_per_liter) > 0) {
+                liters = (Number(rec.total_cost) / Number(rec.price_per_liter)).toFixed(2);
+            } else if (rec.volume_liters) {
+                liters = rec.volume_liters;
             }
             const totalCost = rec.total_cost ?? '';
             
             let mainDistance = '';
             let prevMileage = '';
             for (let j = idx - 1; j >= 0; j--) {
-                if (plateRecords[j].mileage_at_fuel && !isNaN(Number(plateRecords[j].mileage_at_fuel))) {
-                    prevMileage = plateRecords[j].mileage_at_fuel;
+                if (plateRecords[j].odometer_reading && !isNaN(Number(plateRecords[j].odometer_reading))) {
+                    prevMileage = plateRecords[j].odometer_reading;
                     break;
                 }
             }
-            if (rec.mileage_at_fuel && prevMileage !== '' && !isNaN(Number(rec.mileage_at_fuel))) {
-                mainDistance = Number(rec.mileage_at_fuel) - Number(prevMileage);
+            if (rec.odometer_reading && prevMileage !== '' && !isNaN(Number(rec.odometer_reading))) {
+                mainDistance = Number(rec.odometer_reading) - Number(prevMileage);
                 if (mainDistance < 0) mainDistance = '';
             }
             if (mainDistance === '' && rec.notes) {
@@ -554,11 +551,11 @@ function getExcelData() {
             let prevLiters = '';
             for (let j = idx - 1; j >= 0; j--) {
                 const prevRec = plateRecords[j];
-                if (prevRec.total_cost && prevRec.cost_per_liter && Number(prevRec.cost_per_liter) > 0) {
-                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.cost_per_liter)).toFixed(2);
+                if (prevRec.total_cost && prevRec.price_per_liter && Number(prevRec.price_per_liter) > 0) {
+                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.price_per_liter)).toFixed(2);
                     break;
-                } else if (prevRec.liters) {
-                    prevLiters = prevRec.liters;
+                } else if (prevRec.volume_liters) {
+                    prevLiters = prevRec.volume_liters;
                     break;
                 }
             }
@@ -629,16 +626,16 @@ function getExcelData() {
             const d = new Date(rec.fuel_date);
             const date = isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
             const time = isNaN(d) ? '' : String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-            // ใช้เลขไมล์รถพ่วงจากฟิลด์ trailer_mileage_at_fuel แทน mileage_at_fuel
-            const mileage = rec.trailer_mileage_at_fuel ?? '';
+            // ใช้เลขไมล์รถพ่วงจากฟิลด์ trailer_odometer_reading แทน odometer_reading
+            const mileage = rec.trailer_odometer_reading ?? '';
             const fuelType = rec.fuel_type ?? '';
-            const costPerLiter = rec.cost_per_liter ?? '';
+            const costPerLiter = rec.price_per_liter ?? '';
             
             let liters = '';
-            if (rec.total_cost && rec.cost_per_liter && Number(rec.cost_per_liter) > 0) {
-                liters = (Number(rec.total_cost) / Number(rec.cost_per_liter)).toFixed(2);
-            } else if (rec.liters) {
-                liters = rec.liters;
+            if (rec.total_cost && rec.price_per_liter && Number(rec.price_per_liter) > 0) {
+                liters = (Number(rec.total_cost) / Number(rec.price_per_liter)).toFixed(2);
+            } else if (rec.volume_liters) {
+                liters = rec.volume_liters;
             }
             const totalCost = rec.total_cost ?? '';
             
@@ -646,17 +643,17 @@ function getExcelData() {
             let trailerDistance = '';
             let prevTrailerMileage = '';
             for (let j = idx - 1; j >= 0; j--) {
-                if (trailerGrouped[trailerPlate][j].trailer_mileage_at_fuel && !isNaN(Number(trailerGrouped[trailerPlate][j].trailer_mileage_at_fuel))) {
-                    prevTrailerMileage = trailerGrouped[trailerPlate][j].trailer_mileage_at_fuel;
+                if (trailerGrouped[trailerPlate][j].trailer_odometer_reading && !isNaN(Number(trailerGrouped[trailerPlate][j].trailer_odometer_reading))) {
+                    prevTrailerMileage = trailerGrouped[trailerPlate][j].trailer_odometer_reading;
                     break;
                 }
             }
-            if (rec.trailer_mileage_at_fuel && prevTrailerMileage !== '' && !isNaN(Number(rec.trailer_mileage_at_fuel))) {
-                trailerDistance = Number(rec.trailer_mileage_at_fuel) - Number(prevTrailerMileage);
+            if (rec.trailer_odometer_reading && prevTrailerMileage !== '' && !isNaN(Number(rec.trailer_odometer_reading))) {
+                trailerDistance = Number(rec.trailer_odometer_reading) - Number(prevTrailerMileage);
                 if (trailerDistance < 0) trailerDistance = '';
             }
             
-            // ถ้าไม่มีข้อมูลใน trailer_mileage_at_fuel ให้อ่านจาก notes
+            // ถ้าไม่มีข้อมูลใน trailer_odometer_reading ให้อ่านจาก notes
             if (trailerDistance === '' && rec.notes) {
                 const matchTrailer = rec.notes.match(/ระยะวิ่งรถพ่วง:\s*([\d.]+)/);
                 if (matchTrailer) {
@@ -674,11 +671,11 @@ function getExcelData() {
             let prevLiters = '';
             for (let j = idx - 1; j >= 0; j--) {
                 const prevRec = trailerGrouped[trailerPlate][j];
-                if (prevRec.total_cost && prevRec.cost_per_liter && Number(prevRec.cost_per_liter) > 0) {
-                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.cost_per_liter)).toFixed(2);
+                if (prevRec.total_cost && prevRec.price_per_liter && Number(prevRec.price_per_liter) > 0) {
+                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.price_per_liter)).toFixed(2);
                     break;
-                } else if (prevRec.liters) {
-                    prevLiters = prevRec.liters;
+                } else if (prevRec.volume_liters) {
+                    prevLiters = prevRec.volume_liters;
                     break;
                 }
             }
@@ -1041,15 +1038,15 @@ function exportToCSV() {
         const time = isNaN(d) ? '' : String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
         
         let liters = '';
-        if (rec.total_cost && rec.cost_per_liter && Number(rec.cost_per_liter) > 0) {
-            liters = (Number(rec.total_cost) / Number(rec.cost_per_liter)).toFixed(2);
-        } else if (rec.liters) {
-            liters = rec.liters;
+        if (rec.total_cost && rec.price_per_liter && Number(rec.price_per_liter) > 0) {
+            liters = (Number(rec.total_cost) / Number(rec.price_per_liter)).toFixed(2);
+        } else if (rec.volume_liters) {
+            liters = rec.volume_liters;
         }
         
         const row = [
-            date, time, rec.license_plate ?? '', rec.mileage_at_fuel ?? '', 
-            rec.fuel_type ?? '', rec.cost_per_liter ?? '', liters, 
+            date, time, rec.license_plate ?? '', rec.odometer_reading ?? '', 
+            rec.fuel_type ?? '', rec.price_per_liter ?? '', liters, 
             rec.total_cost ?? '', getCleanNotes(rec.notes ?? '')
         ];
         csvContent += row.map(field => `"${field}"`).join(',') + '\n';
@@ -1155,15 +1152,15 @@ function exportToPDF() {
             const d = new Date(rec.fuel_date);
             const date = isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
             const time = isNaN(d) ? '' : String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-            const mileage = rec.mileage_at_fuel ?? '';
+            const mileage = rec.odometer_reading ?? '';
             const fuelType = rec.fuel_type ?? '';
-            const costPerLiter = rec.cost_per_liter ?? '';
+            const costPerLiter = rec.price_per_liter ?? '';
             
             let liters = '';
-            if (rec.total_cost && rec.cost_per_liter && Number(rec.cost_per_liter) > 0) {
-                liters = (Number(rec.total_cost) / Number(rec.cost_per_liter)).toFixed(2);
-            } else if (rec.liters) {
-                liters = rec.liters;
+            if (rec.total_cost && rec.price_per_liter && Number(rec.price_per_liter) > 0) {
+                liters = (Number(rec.total_cost) / Number(rec.price_per_liter)).toFixed(2);
+            } else if (rec.volume_liters) {
+                liters = rec.volume_liters;
             }
             const totalCost = rec.total_cost ?? '';
             
@@ -1171,13 +1168,13 @@ function exportToPDF() {
             let mainDistance = '';
             let prevMileage = '';
             for (let j = idx - 1; j >= 0; j--) {
-                if (plateRecords[j].mileage_at_fuel && !isNaN(Number(plateRecords[j].mileage_at_fuel))) {
-                    prevMileage = plateRecords[j].mileage_at_fuel;
+                if (plateRecords[j].odometer_reading && !isNaN(Number(plateRecords[j].odometer_reading))) {
+                    prevMileage = plateRecords[j].odometer_reading;
                     break;
                 }
             }
-            if (rec.mileage_at_fuel && prevMileage !== '' && !isNaN(Number(rec.mileage_at_fuel))) {
-                mainDistance = Number(rec.mileage_at_fuel) - Number(prevMileage);
+            if (rec.odometer_reading && prevMileage !== '' && !isNaN(Number(rec.odometer_reading))) {
+                mainDistance = Number(rec.odometer_reading) - Number(prevMileage);
                 if (mainDistance < 0) mainDistance = '';
             }
             if (mainDistance === '' && rec.notes) {
@@ -1197,11 +1194,11 @@ function exportToPDF() {
             let prevLiters = '';
             for (let j = idx - 1; j >= 0; j--) {
                 const prevRec = plateRecords[j];
-                if (prevRec.total_cost && prevRec.cost_per_liter && Number(prevRec.cost_per_liter) > 0) {
-                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.cost_per_liter)).toFixed(2);
+                if (prevRec.total_cost && prevRec.price_per_liter && Number(prevRec.price_per_liter) > 0) {
+                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.price_per_liter)).toFixed(2);
                     break;
-                } else if (prevRec.liters) {
-                    prevLiters = prevRec.liters;
+                } else if (prevRec.volume_liters) {
+                    prevLiters = prevRec.volume_liters;
                     break;
                 }
             }
@@ -1286,16 +1283,16 @@ function exportToPDF() {
             const d = new Date(rec.fuel_date);
             const date = isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
             const time = isNaN(d) ? '' : String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-            // ใช้เลขไมล์รถพ่วงจากฟิลด์ trailer_mileage_at_fuel แทน mileage_at_fuel
-            const mileage = rec.trailer_mileage_at_fuel ?? '';
+            // ใช้เลขไมล์รถพ่วงจากฟิลด์ trailer_odometer_reading แทน odometer_reading
+            const mileage = rec.trailer_odometer_reading ?? '';
             const fuelType = rec.fuel_type ?? '';
-            const costPerLiter = rec.cost_per_liter ?? '';
+            const costPerLiter = rec.price_per_liter ?? '';
             
             let liters = '';
-            if (rec.total_cost && rec.cost_per_liter && Number(rec.cost_per_liter) > 0) {
-                liters = (Number(rec.total_cost) / Number(rec.cost_per_liter)).toFixed(2);
-            } else if (rec.liters) {
-                liters = rec.liters;
+            if (rec.total_cost && rec.price_per_liter && Number(rec.price_per_liter) > 0) {
+                liters = (Number(rec.total_cost) / Number(rec.price_per_liter)).toFixed(2);
+            } else if (rec.volume_liters) {
+                liters = rec.volume_liters;
             }
             const totalCost = rec.total_cost ?? '';
             
@@ -1303,17 +1300,17 @@ function exportToPDF() {
             let trailerDistance = '';
             let prevTrailerMileage = '';
             for (let j = idx - 1; j >= 0; j--) {
-                if (trailerGrouped3[trailerPlate][j].trailer_mileage_at_fuel && !isNaN(Number(trailerGrouped3[trailerPlate][j].trailer_mileage_at_fuel))) {
-                    prevTrailerMileage = trailerGrouped3[trailerPlate][j].trailer_mileage_at_fuel;
+                if (trailerGrouped3[trailerPlate][j].trailer_odometer_reading && !isNaN(Number(trailerGrouped3[trailerPlate][j].trailer_odometer_reading))) {
+                    prevTrailerMileage = trailerGrouped3[trailerPlate][j].trailer_odometer_reading;
                     break;
                 }
             }
-            if (rec.trailer_mileage_at_fuel && prevTrailerMileage !== '' && !isNaN(Number(rec.trailer_mileage_at_fuel))) {
-                trailerDistance = Number(rec.trailer_mileage_at_fuel) - Number(prevTrailerMileage);
+            if (rec.trailer_odometer_reading && prevTrailerMileage !== '' && !isNaN(Number(rec.trailer_odometer_reading))) {
+                trailerDistance = Number(rec.trailer_odometer_reading) - Number(prevTrailerMileage);
                 if (trailerDistance < 0) trailerDistance = '';
             }
             
-            // ถ้าไม่มีข้อมูลใน trailer_mileage_at_fuel ให้อ่านจาก notes
+            // ถ้าไม่มีข้อมูลใน trailer_odometer_reading ให้อ่านจาก notes
             if (trailerDistance === '' && rec.notes) {
                 const matchTrailer = rec.notes.match(/ระยะวิ่งรถพ่วง:\s*([\d.]+)/);
                 if (matchTrailer) {
@@ -1330,11 +1327,11 @@ function exportToPDF() {
             let prevLiters = '';
             for (let j = idx - 1; j >= 0; j--) {
                 const prevRec = trailerGrouped3[trailerPlate][j];
-                if (prevRec.total_cost && prevRec.cost_per_liter && Number(prevRec.cost_per_liter) > 0) {
-                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.cost_per_liter)).toFixed(2);
+                if (prevRec.total_cost && prevRec.price_per_liter && Number(prevRec.price_per_liter) > 0) {
+                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.price_per_liter)).toFixed(2);
                     break;
-                } else if (prevRec.liters) {
-                    prevLiters = prevRec.liters;
+                } else if (prevRec.volume_liters) {
+                    prevLiters = prevRec.volume_liters;
                     break;
                 }
             }
