@@ -58,6 +58,8 @@ $records = getFuelRecords($conn, $role, $employee_id);
         $departments = [];
         ?>
         <!-- Department filter removed as field doesn't exist in database -->
+        <!-- Hidden dummy element to prevent JavaScript errors -->
+        <input id="departmentFilter" type="hidden" value="">
         <input id="dateStart" type="date" class="rounded-lg px-4 py-2 w-full md:w-1/5 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:ring-2 focus:ring-[#4ade80]" placeholder="วันที่เริ่มต้น">
         <input id="dateEnd" type="date" class="rounded-lg px-4 py-2 w-full md:w-1/5 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:ring-2 focus:ring-[#4ade80]" placeholder="วันที่สิ้นสุด">
         <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'manager'): ?>
@@ -403,7 +405,6 @@ function exportData() {
 // ฟังก์ชันสำหรับกรองข้อมูลตามฟิลเตอร์ทั้งหมด
 function getFilteredRecords() {
     const search = document.getElementById('searchInput').value.toLowerCase();
-    const department = document.getElementById('departmentFilter').value;
     const start = document.getElementById('dateStart').value;
     const end = document.getElementById('dateEnd').value;
     
@@ -414,15 +415,12 @@ function getFilteredRecords() {
         const notes = getCleanNotes(rec.notes || '').toLowerCase();
         const searchMatch = !search || plate.includes(search) || status.includes(search) || notes.includes(search);
         
-        // ตรวจสอบสังกัด
-        const departmentMatch = !department || rec.department === department;
-        
         // ตรวจสอบช่วงวันที่
         const dateText = new Date(rec.fuel_date).toISOString().slice(0, 10); // yyyy-mm-dd
         const startMatch = !start || dateText >= start;
         const endMatch = !end || dateText <= end;
         
-        return searchMatch && departmentMatch && startMatch && endMatch;
+        return searchMatch && startMatch && endMatch;
     });
 }
 
@@ -449,13 +447,11 @@ function getCleanNotes(notes) {
 // ฟังก์ชันสำหรับสร้างข้อความตัวกรอง
 function getFilterDescription() {
     const search = document.getElementById('searchInput').value;
-    const department = document.getElementById('departmentFilter').value;
     const dateStart = document.getElementById('dateStart').value;
     const dateEnd = document.getElementById('dateEnd').value;
     
     let filterParts = [];
     if (search) filterParts.push(`ค้นหา: ${search}`);
-    if (department) filterParts.push(`สังกัด: ${department}`);
     if (dateStart || dateEnd) {
         const dateRange = dateStart && dateEnd ? `${dateStart} ถึง ${dateEnd}` : 
                          dateStart ? `ตั้งแต่ ${dateStart}` : `จนถึง ${dateEnd}`;
@@ -468,8 +464,7 @@ function getFilterDescription() {
 // ฟังก์ชันรวมสำหรับเตรียมข้อมูล Excel/ODS
 function getExcelData() {
     // หัวรายงาน
-    const selectedDepartment = document.getElementById('departmentFilter').value;
-    const orgName = selectedDepartment || "รวมทุกรายการ";
+    const orgName = "รวมทุกรายการ";
     const reportTitle = `รายการน้ำมัน${orgName}`;
     const reportSub = 'สำเนารายการจากสลิปน้ำมัน';
     const headers = [
@@ -1027,7 +1022,7 @@ function exportToODS() {
 
 function exportToCSV() {
     const filterText = getFilterDescription();
-    const headers = ['วันที่', 'เวลา', 'ทะเบียนรถ', 'เลขไมล์', 'ชนิดน้ำมัน', 'ราคาต่อลิตร', 'ลิตร', 'ราคารวม', 'สังกัด', 'หมายเหตุ'];
+    const headers = ['วันที่', 'เวลา', 'ทะเบียนรถ', 'เลขไมล์', 'ชนิดน้ำมัน', 'ราคาต่อลิตร', 'ลิตร', 'ราคารวม', 'หมายเหตุ'];
     let csvContent = '\uFEFF';
     
     // เพิ่มข้อมูลตัวกรองที่มุมขวาบน (ถ้ามี)
@@ -1055,7 +1050,7 @@ function exportToCSV() {
         const row = [
             date, time, rec.license_plate ?? '', rec.mileage_at_fuel ?? '', 
             rec.fuel_type ?? '', rec.cost_per_liter ?? '', liters, 
-            rec.total_cost ?? '', rec.department ?? '', getCleanNotes(rec.notes ?? '')
+            rec.total_cost ?? '', getCleanNotes(rec.notes ?? '')
         ];
         csvContent += row.map(field => `"${field}"`).join(',') + '\n';
     });
@@ -1073,8 +1068,7 @@ function exportToCSV() {
 function exportToPDF() {
     // สร้างหน้าต่างใหม่สำหรับพิมพ์เป็น PDF
     const printWindow = window.open('', '_blank');
-    const selectedDepartment = document.getElementById('departmentFilter').value;
-    const orgName = selectedDepartment || "รวมทุกรายการ";
+    const orgName = "รวมทุกรายการ";
     const reportTitle = `รายการน้ำมัน${orgName}`;
     const reportSub = 'สำเนารายการจากสลิปน้ำมัน';
     const filterText = getFilterDescription();
