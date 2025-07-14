@@ -128,16 +128,30 @@ if (isset($_GET['edit'])) {
         body {
             font-family: 'Sarabun', 'Poppins', 'Inter', sans-serif;
         }
+        .animate-slide-down {
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
-<?php include '../container/header.php'; ?>
 
 <body class="min-h-screen bg-gradient-to-br from-[#1e293b] to-[#0f172a] text-[#e0e0e0]">
+    <?php include '../container/header.php'; ?>
     <div class="container mx-auto py-10">
         <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-[#f9fafb]">จัดการข้อมูลคนขับ</h1>
-            <button onclick="openEmployeeModal()" class="flex items-center gap-2 bg-[#4ade80] hover:bg-[#22d3ee] text-[#111827] rounded-lg px-4 py-2 shadow-lg font-semibold transition-all duration-150" title="เพิ่มคนขับ">
-                <h2 class="เปลี่ยน + เป็น   <h2 class="font-semibold text-[#60a5fa] text-lg">เพิ่มผู้ใช้ใหม่</h2>
+            <h1 class="text-3xl font-bold text-[#f9fafb]">จัดการข้อมูลพนักงาน</h1>
+            <button onclick="openEmployeeModal()" class="flex items-center gap-2 bg-[#4ade80] hover:bg-[#22d3ee] text-[#111827] rounded-lg px-4 py-2 shadow-lg font-semibold transition-all duration-150" title="เพิ่มพนักงาน">
+                <span class="text-lg">+</span>
+                <span>เพิ่มพนักงานใหม่</span>
             </button>
         </div>
         <div class="overflow-x-auto">
@@ -187,53 +201,143 @@ if (isset($_GET['edit'])) {
             </table>
         </div>
 
-        <!-- Popup Modal สำหรับเพิ่ม/แก้ไข -->
-        <div id="employeeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-            <div class="bg-[#1f2937] rounded-2xl shadow-xl p-8 max-w-xl w-full relative text-[#e0e0e0]">
-                <button onclick="closeEmployeeModal()" class="absolute top-2 right-2 text-2xl text-[#f87171] hover:text-[#ef4444] font-bold">&times;</button>
-                <h2 id="modalTitle" class="text-xl font-bold mb-4 text-[#60a5fa]">เพิ่มคนขับ</h2>
-                <form id="employeeForm" method="post" class="space-y-5">
+        <!-- Employee Modal -->
+        <div id="employeeModal" class="fixed inset-0 bg-black bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-[#1f2937] border-[#374151] animate-slide-down">
+                <div class="flex justify-between items-center pb-3 border-b border-[#374151]">
+                    <h3 id="modalTitle" class="text-xl font-semibold text-[#f9fafb]">เพิ่มพนักงานใหม่</h3>
+                    <button onclick="closeEmployeeModal()" class="text-[#9ca3af] hover:text-[#f87171] transition-colors duration-200">
+                        <span class="text-2xl">&times;</span>
+                    </button>
+                </div>
+                
+                <form id="employeeForm" method="post" class="space-y-6 mt-6">
                     <input type="hidden" name="edit_id" id="edit_id">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block font-semibold mb-1">ชื่อ</label>
-                            <input type="text" name="first_name" id="first_name" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:border-[#4ade80] focus:ring-2 focus:ring-[#4ade80]" required>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Left Column -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">รหัสพนักงาน *</label>
+                                <input type="text" name="employee_code" id="employee_code" required class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" placeholder="EMP001">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ชื่อ *</label>
+                                <input type="text" name="first_name" id="first_name" required class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" placeholder="ชื่อ">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">นามสกุล *</label>
+                                <input type="text" name="last_name" id="last_name" required class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" placeholder="นามสกุล">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ชื่อเล่น</label>
+                                <input type="text" name="nickname" id="nickname" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" placeholder="ชื่อเล่น">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">เพศ</label>
+                                <select name="gender" id="gender" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                                    <option value="">เลือกเพศ</option>
+                                    <option value="male">ชาย</option>
+                                    <option value="female">หญิง</option>
+                                    <option value="other">อื่นๆ</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">วันเกิด</label>
+                                <input type="date" name="birth_date" id="birth_date" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                            </div>
                         </div>
-                        <div>
-                            <label class="block font-semibold mb-1">นามสกุล</label>
-                            <input type="text" name="last_name" id="last_name" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:border-[#4ade80] focus:ring-2 focus:ring-[#4ade80]" required>
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-1">Email</label>
-                            <input type="email" name="email" id="email" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:border-[#4ade80] focus:ring-2 focus:ring-[#4ade80]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-1">เบอร์โทร</label>
-                            <input type="text" name="phone_number" id="phone_number" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:border-[#4ade80] focus:ring-2 focus:ring-[#4ade80]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-1">ตำแหน่ง</label>
-                            <input type="text" name="job_title" id="job_title" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:border-[#4ade80] focus:ring-2 focus:ring-[#4ade80]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-1">เลขใบขับขี่</label>
-                            <input type="text" name="driver_license_number" id="driver_license_number" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:border-[#4ade80] focus:ring-2 focus:ring-[#4ade80]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-1">วันหมดอายุใบขับขี่</label>
-                            <input type="date" name="license_expiry_date" id="license_expiry_date" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:border-[#4ade80] focus:ring-2 focus:ring-[#4ade80]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-1">รหัสพนักงาน</label>
-                            <input type="text" name="employee_code" id="employee_code" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] focus:border-[#4ade80] focus:ring-2 focus:ring-[#4ade80]" required>
+                        
+                        <!-- Right Column -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">เบอร์โทรศัพท์</label>
+                                <input type="tel" name="phone_number" id="phone_number" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" placeholder="081-234-5678">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">อีเมล</label>
+                                <input type="email" name="email" id="email" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" placeholder="email@example.com">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">แผนก *</label>
+                                <select name="department_id" id="department_id" required class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                                    <option value="">เลือกแผนก</option>
+                                    <option value="1">บุคคล</option>
+                                    <option value="2">การเงิน</option>
+                                    <option value="3">โลจิสติกส์</option>
+                                    <option value="4">คลังสินค้า</option>
+                                    <option value="5">ขนส่ง</option>
+                                    <option value="6">ซ่อมบำรุง</option>
+                                    <option value="7">IT</option>
+                                    <option value="8">บริหารทั่วไป</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ตำแหน่ง *</label>
+                                <select name="job_title" id="job_title" required class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                                    <option value="">เลือกตำแหน่ง</option>
+                                    <option value="ผู้จัดการ">ผู้จัดการ</option>
+                                    <option value="หัวหน้างาน">หัวหน้างาน</option>
+                                    <option value="พนักงานอาวุโส">พนักงานอาวุโส</option>
+                                    <option value="พนักงาน">พนักงาน</option>
+                                    <option value="พนักงานขับรถ">พนักงานขับรถ</option>
+                                    <option value="ช่างซ่อม">ช่างซ่อม</option>
+                                    <option value="พนักงานคลัง">พนักงานคลัง</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">วันเริ่มงาน *</label>
+                                <input type="date" name="hire_date" id="hire_date" required class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">เงินเดือน</label>
+                                <input type="number" name="base_salary" id="base_salary" step="0.01" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" placeholder="25000.00">
+                            </div>
                         </div>
                     </div>
-                    <div class="mt-6 text-center flex flex-col md:flex-row gap-4 justify-center">
-                        <button type="submit" class="transition-all duration-150 bg-[#60a5fa] hover:bg-[#4ade80] text-[#111827] font-semibold px-6 py-2 rounded-lg shadow hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#4ade80]">
-                            บันทึก
-                        </button>
-                        <button type="button" onclick="closeEmployeeModal()" class="transition-all duration-150 bg-[#f87171] hover:bg-[#ef4444] text-white font-semibold px-6 py-2 rounded-lg shadow hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#f87171] text-center">
+                    
+                    <!-- Driver Information -->
+                    <div class="border-t border-[#374151] pt-4">
+                        <div class="flex items-center mb-4">
+                            <input type="checkbox" id="isDriver" class="h-4 w-4 text-[#4f46e5] focus:ring-[#4f46e5] bg-[#111827] border-[#374151] rounded">
+                            <label for="isDriver" class="ml-2 block text-sm text-[#e5e7eb]">เป็นพนักงานขับรถ</label>
+                        </div>
+                        
+                        <div id="driverInfo" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">เลขใบขับขี่</label>
+                                <input type="text" name="driver_license_number" id="driver_license_number" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" placeholder="เลขใบขับขี่">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-[#e5e7eb] mb-2">วันหมดอายุใบขับขี่</label>
+                                <input type="date" name="license_expiry_date" id="license_expiry_date" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Address -->
+                    <div class="border-t border-[#374151] pt-4">
+                        <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ที่อยู่</label>
+                        <textarea rows="3" name="address" id="address" class="w-full px-4 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors resize-none" placeholder="ที่อยู่ปัจจุบัน"></textarea>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end gap-4 pt-4 border-t border-[#374151]">
+                        <button type="button" onclick="closeEmployeeModal()" class="px-6 py-2 bg-[#374151] border border-[#4b5563] rounded-lg text-[#e5e7eb] hover:bg-[#4b5563] transition-colors duration-200">
                             ยกเลิก
+                        </button>
+                        <button type="submit" class="px-6 py-2 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white rounded-lg hover:shadow-lg hover:shadow-[#4f46e5]/20 hover:-translate-y-1 transition-all duration-300">
+                            บันทึกข้อมูล
                         </button>
                     </div>
                 </form>
@@ -242,17 +346,22 @@ if (isset($_GET['edit'])) {
     </div>
 <script>
 function openEmployeeModal() {
-    document.getElementById('modalTitle').innerText = 'เพิ่มคนขับ';
+    document.getElementById('modalTitle').innerText = 'เพิ่มพนักงานใหม่';
     document.getElementById('employeeForm').reset();
     document.getElementById('edit_id').value = '';
+    document.getElementById('driverInfo').classList.add('hidden');
+    document.getElementById('isDriver').checked = false;
     document.getElementById('employeeModal').classList.remove('hidden');
 }
+
 function closeEmployeeModal() {
     document.getElementById('employeeModal').classList.add('hidden');
 }
+
 function editEmployee(data) {
-    document.getElementById('modalTitle').innerText = 'แก้ไขข้อมูลคนขับ';
+    document.getElementById('modalTitle').innerText = 'แก้ไขข้อมูลพนักงาน';
     document.getElementById('edit_id').value = data.employee_id || '';
+    document.getElementById('employee_code').value = data.employee_code || '';
     document.getElementById('first_name').value = data.first_name || '';
     document.getElementById('last_name').value = data.last_name || '';
     document.getElementById('email').value = data.email || '';
@@ -260,9 +369,37 @@ function editEmployee(data) {
     document.getElementById('job_title').value = data.job_title || '';
     document.getElementById('driver_license_number').value = data.driver_license_number || '';
     document.getElementById('license_expiry_date').value = data.license_expiry_date || '';
-    document.getElementById('employee_code').value = data.employee_code || '';
+    
+    // Show driver info if license number exists
+    if (data.driver_license_number) {
+        document.getElementById('isDriver').checked = true;
+        document.getElementById('driverInfo').classList.remove('hidden');
+    } else {
+        document.getElementById('isDriver').checked = false;
+        document.getElementById('driverInfo').classList.add('hidden');
+    }
+    
     document.getElementById('employeeModal').classList.remove('hidden');
 }
+
+// Handle driver checkbox toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const isDriverCheckbox = document.getElementById('isDriver');
+    const driverInfo = document.getElementById('driverInfo');
+    
+    if (isDriverCheckbox && driverInfo) {
+        isDriverCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                driverInfo.classList.remove('hidden');
+            } else {
+                driverInfo.classList.add('hidden');
+                // Clear driver fields when unchecked
+                document.getElementById('driver_license_number').value = '';
+                document.getElementById('license_expiry_date').value = '';
+            }
+        });
+    }
+});
 </script>
 </body>
 

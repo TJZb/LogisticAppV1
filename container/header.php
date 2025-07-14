@@ -1,6 +1,8 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 $role = $_SESSION['role'] ?? '';
+$username = $_SESSION['username'] ?? '';
+$full_name = $_SESSION['full_name'] ?? '';
 ?>
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 <nav style="background-color:#111827; border-bottom:1px solid #374151; height:60px;" class="px-4 flex items-center justify-between relative">
@@ -27,8 +29,16 @@ $role = $_SESSION['role'] ?? '';
             <?php endif; ?>
         </div>
     </div>
-    <div class="hidden md:block">
-        <a href="../logout.php" class="nav-link flex items-center text-red-300 hover:underline"><span class="material-icons md-18 mr-1">logout</span>ออกจากระบบ</a>
+    <div class="hidden md:flex items-center gap-4">
+        <?php if (!empty($role)): ?>
+            <span class="text-[#e5e7eb] text-sm">
+                สวัสดี, <?= htmlspecialchars($full_name ?: $username) ?>
+                <span class="text-[#9ca3af]">(<?= htmlspecialchars($role) ?>)</span>
+            </span>
+            <a href="../logout.php" class="nav-link flex items-center text-red-300 hover:underline"><span class="material-icons md-18 mr-1">logout</span>ออกจากระบบ</a>
+        <?php else: ?>
+            <a href="../login.php" class="nav-link flex items-center text-blue-300 hover:underline"><span class="material-icons md-18 mr-1">login</span>เข้าสู่ระบบ</a>
+        <?php endif; ?>
     </div>
     <!-- Mobile menu dropdown -->
     <div id="mobileMenu" class="md:hidden absolute top-full left-0 w-full bg-[#111827] border-t border-[#374151] z-50 hidden">
@@ -47,7 +57,17 @@ $role = $_SESSION['role'] ?? '';
                     <?php endif; ?>
                 <?php endif; ?>
             <?php endif; ?>
-            <a href="../logout.php" class="nav-link flex items-center text-red-300 px-4 py-2 hover:underline"><span class="material-icons md-18 mr-1">logout</span>ออกจากระบบ</a>
+            <?php if (!empty($role)): ?>
+                <div class="border-t border-[#374151] mt-2 pt-2">
+                    <div class="px-4 py-2 text-[#e5e7eb] text-sm">
+                        สวัสดี, <?= htmlspecialchars($full_name ?: $username) ?>
+                        <span class="text-[#9ca3af] block">(<?= htmlspecialchars($role) ?>)</span>
+                    </div>
+                    <a href="../logout.php" class="nav-link flex items-center text-red-300 px-4 py-2 hover:underline"><span class="material-icons md-18 mr-1">logout</span>ออกจากระบบ</a>
+                </div>
+            <?php else: ?>
+                <a href="../login.php" class="nav-link flex items-center text-blue-300 px-4 py-2 hover:underline"><span class="material-icons md-18 mr-1">login</span>เข้าสู่ระบบ</a>
+            <?php endif; ?>
         </div>
     </div>
 </nav>
