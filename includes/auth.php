@@ -44,7 +44,10 @@ function authenticate_user($username, $password) {
  * ฟังก์ชันสำหรับการสร้างเซสชัน
  */
 function create_session($user) {
-    session_start();
+    // เริ่ม session เฉพาะถ้ายังไม่ได้เริ่ม
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     session_regenerate_id(true); // ป้องกัน session hijacking
     
     $_SESSION['user_id'] = $user['user_id'];
@@ -63,7 +66,10 @@ function create_session($user) {
  * ฟังก์ชันสำหรับการตรวจสอบเซสชัน
  */
 function check_session() {
-    session_start();
+    // เริ่ม session เฉพาะถ้ายังไม่ได้เริ่ม
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     
     // ตรวจสอบว่ามีเซสชันหรือไม่
     if (!isset($_SESSION['user_id'])) {
@@ -86,7 +92,10 @@ function check_session() {
  * ฟังก์ชันสำหรับการทำลายเซสชัน
  */
 function destroy_session() {
-    session_start();
+    // เริ่ม session เฉพาะถ้ายังไม่ได้เริ่ม
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     
     if (isset($_SESSION['username'])) {
         log_activity('LOGOUT', "User: {$_SESSION['username']}");
@@ -156,11 +165,7 @@ function require_login() {
  * ฟังก์ชันสำหรับการตรวจสอบสิทธิ์ตามบทบาท (auth function)
  */
 function auth($required_roles = []) {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    
-    // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่
+    // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่ (check_session จะจัดการ session_start เอง)
     if (!check_session()) {
         header('Location: ../login.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
         exit();
