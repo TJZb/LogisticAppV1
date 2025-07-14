@@ -85,7 +85,7 @@
 
     // ลบฟังก์ชัน getCar ออกเพราะมีในไฟล์ service แล้ว
     function getLastFuelRecord($conn, $vehicle_id) {
-        $stmt = $conn->prepare("SELECT TOP 1 * FROM FuelRecords WHERE vehicle_id = ? ORDER BY fuel_date DESC");
+        $stmt = $conn->prepare("SELECT TOP 1 * FROM fuel_records WHERE vehicle_id = ? ORDER BY fuel_date DESC");
         $stmt->execute([$vehicle_id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -100,7 +100,7 @@
             // กรณีแก้ไข ให้เช็คว่ามี parameter edit=1 หรือ fuel_record_id
             if (isset($_GET['edit']) && isset($_GET['fuel_record_id'])) {
                 // ดึงข้อมูลรายการที่จะแก้ไข
-                $stmt = $conn->prepare("SELECT * FROM FuelRecords WHERE fuel_record_id = ?");
+                $stmt = $conn->prepare("SELECT * FROM fuel_records WHERE fuel_record_id = ?");
                 $stmt->execute([$_GET['fuel_record_id']]);
                 $fuel = $stmt->fetch(PDO::FETCH_ASSOC);
                 if ($fuel) {
@@ -166,9 +166,9 @@
         $trailer_vehicle_id = isset($_POST['trailer_vehicle_id']) && $_POST['trailer_vehicle_id'] !== '' ? $_POST['trailer_vehicle_id'] : null;
         $recorded_by_employee_id = $employeeId;
 
-        // เพิ่ม trailer_vehicle_id ลงใน FuelRecords ถ้ามี
+        // เพิ่ม trailer_vehicle_id ลงใน fuel_records ถ้ามี
         if ($trailer_vehicle_id) {
-            $sql = "INSERT INTO FuelRecords (vehicle_id, trailer_vehicle_id, fuel_date, recorded_by_employee_id, status) 
+            $sql = "INSERT INTO fuel_records (vehicle_id, trailer_vehicle_id, fuel_date, recorded_by_employee_id, status) 
                     OUTPUT INSERTED.fuel_record_id 
                     VALUES (?, ?, GETDATE(), ?, 'pending')";
             $stmt = $conn->prepare($sql);
@@ -176,7 +176,7 @@
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             $fuel_record_id = $result['fuel_record_id'];
         } else {
-            $sql = "INSERT INTO FuelRecords (vehicle_id, fuel_date, recorded_by_employee_id, status) 
+            $sql = "INSERT INTO fuel_records (vehicle_id, fuel_date, recorded_by_employee_id, status) 
                     OUTPUT INSERTED.fuel_record_id 
                     VALUES (?, GETDATE(), ?, 'pending')";
             $stmt = $conn->prepare($sql);
@@ -194,7 +194,7 @@
         ];
         foreach ($attachmentTypes as $field => $type) {
             if (isset($files[$field])) {
-                $stmt = $conn->prepare("INSERT INTO FuelReceiptAttachments 
+                $stmt = $conn->prepare("INSERT INTO fuel_receipt_attachments 
                     (fuel_record_id, attachment_type, file_path, uploaded_at, uploaded_by_employee_id)
                     VALUES (?, ?, ?, GETDATE(), ?)");
                 $stmt->execute([

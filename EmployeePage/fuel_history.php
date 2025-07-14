@@ -8,13 +8,13 @@ $conn = connect_db();
 function getFuelRecords($conn, $role, $employee_id = null) {
     $baseSelect = "SELECT f.*, v.license_plate, v.department, v.current_mileage AS main_current_mileage, e.first_name, e.last_name,
         t.license_plate AS trailer_license_plate, t.current_mileage AS trailer_current_mileage,
-        (SELECT file_path FROM FuelReceiptAttachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'gauge_before') AS gauge_before_img,
-        (SELECT file_path FROM FuelReceiptAttachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'gauge_after') AS gauge_after_img,
-        (SELECT file_path FROM FuelReceiptAttachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'receipt' ) AS receipt_file
-        FROM FuelRecords f
-        JOIN Vehicles v ON f.vehicle_id = v.vehicle_id
-        LEFT JOIN Vehicles t ON f.trailer_vehicle_id = t.vehicle_id
-        LEFT JOIN Employees e ON f.recorded_by_employee_id = e.employee_id
+        (SELECT file_path FROM fuel_receipt_attachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'gauge_before') AS gauge_before_img,
+        (SELECT file_path FROM fuel_receipt_attachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'gauge_after') AS gauge_after_img,
+        (SELECT file_path FROM fuel_receipt_attachments WHERE fuel_record_id = f.fuel_record_id AND attachment_type = 'receipt' ) AS receipt_file
+        FROM fuel_records f
+        JOIN vehicles v ON f.vehicle_id = v.vehicle_id
+        LEFT JOIN vehicles t ON f.trailer_vehicle_id = t.vehicle_id
+        LEFT JOIN employees e ON f.recorded_by_employee_id = e.employee_id
         WHERE f.status IN ('pending', 'approved')";
     if ($role === 'admin' || $role === 'manager') {
         $sql = $baseSelect . " ORDER BY f.fuel_date DESC";
@@ -56,9 +56,9 @@ $records = getFuelRecords($conn, $role, $employee_id);
         <?php
         // ดึงรายการสังกัดที่มีในข้อมูล
         if ($role === 'admin' || $role === 'manager') {
-            $departments = $conn->query("SELECT DISTINCT v.department FROM FuelRecords f JOIN Vehicles v ON f.vehicle_id = v.vehicle_id WHERE v.department IS NOT NULL AND v.department <> '' ORDER BY v.department ASC")->fetchAll(PDO::FETCH_COLUMN);
+            $departments = $conn->query("SELECT DISTINCT v.department FROM fuel_records f JOIN vehicles v ON f.vehicle_id = v.vehicle_id WHERE v.department IS NOT NULL AND v.department <> '' ORDER BY v.department ASC")->fetchAll(PDO::FETCH_COLUMN);
         } else {
-            $stmt = $conn->prepare("SELECT DISTINCT v.department FROM FuelRecords f JOIN Vehicles v ON f.vehicle_id = v.vehicle_id WHERE f.recorded_by_employee_id = ? AND v.department IS NOT NULL AND v.department <> '' ORDER BY v.department ASC");
+            $stmt = $conn->prepare("SELECT DISTINCT v.department FROM fuel_records f JOIN vehicles v ON f.vehicle_id = v.vehicle_id WHERE f.recorded_by_employee_id = ? AND v.department IS NOT NULL AND v.department <> '' ORDER BY v.department ASC");
             $stmt->execute([$employee_id]);
             $departments = $stmt->fetchAll(PDO::FETCH_COLUMN);
         }

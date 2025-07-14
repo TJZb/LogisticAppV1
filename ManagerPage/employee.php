@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     } else {
         // INSERT
-        $sql = "INSERT INTO Employees (first_name, last_name, email, phone_number, job_title, driver_license_number, license_expiry_date, employee_code)
+        $sql = "INSERT INTO employees (first_name, last_name, email, phone_number, job_title, driver_license_number, license_expiry_date, employee_code)
                 OUTPUT INSERTED.employee_id
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $default_password = '123456'; // หรือกำหนดเอง
         $password_hash = password_hash($default_password, PASSWORD_DEFAULT);
         $role = 'employee';
-        $stmt = $conn->prepare("INSERT INTO Users (username, password_hash, role, employee_id, active) VALUES (?, ?, ?, ?, 1)");
+        $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role, employee_id, active) VALUES (?, ?, ?, ?, 1)");
         $stmt->execute([
             $employee_code,
             $password_hash,
@@ -97,11 +97,11 @@ if (isset($_GET['activate'])) {
     exit;
 }
 
-// ดึงข้อมูลพนักงานทั้งหมด พร้อมสถานะจาก Users
+// ดึงข้อมูลพนักงานทั้งหมด พร้อมสถานะจาก users
 $stmt = $conn->query("
     SELECT e.*, u.active 
     FROM employees e 
-    LEFT JOIN Users u ON e.employee_id = u.employee_id 
+    LEFT JOIN users u ON e.employee_id = u.employee_id 
     ORDER BY e.employee_id DESC
 ");
 $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);

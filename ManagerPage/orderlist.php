@@ -9,15 +9,15 @@ $conn = connect_db();
 // ดึงข้อมูลรถหลักและรถพ่วง (ถ้ามี)
 $sql = "SELECT fr.*, v.license_plate, v.vehicle_id,
        t.license_plate AS trailer_license_plate, t.vehicle_id AS trailer_vehicle_id
-        FROM FuelRecords fr
-        JOIN Vehicles v ON fr.vehicle_id = v.vehicle_id
-        LEFT JOIN Vehicles t ON fr.trailer_vehicle_id = t.vehicle_id
+        FROM fuel_records fr
+        JOIN vehicles v ON fr.vehicle_id = v.vehicle_id
+        LEFT JOIN vehicles t ON fr.trailer_vehicle_id = t.vehicle_id
         WHERE fr.status = 'pending' ORDER BY fr.fuel_date DESC";
 $stmt = $conn->query($sql);
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // ดึงประเภทเชื้อเพลิงที่เคยใช้ (ไม่ซ้ำ)
-$stmt = $conn->query("SELECT DISTINCT fuel_type FROM FuelRecords WHERE fuel_type IS NOT NULL AND fuel_type <> ''");
+$stmt = $conn->query("SELECT DISTINCT fuel_type FROM fuel_records WHERE fuel_type IS NOT NULL AND fuel_type <> ''");
 $fuel_types = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 // ดึงไฟล์แนบของแต่ละรายการ
@@ -25,7 +25,7 @@ $attachments = [];
 if ($orders) {
     $ids = array_column($orders, 'fuel_record_id');
     $in = str_repeat('?,', count($ids) - 1) . '?';
-    $stmt2 = $conn->prepare("SELECT * FROM FuelReceiptAttachments WHERE fuel_record_id IN ($in)");
+    $stmt2 = $conn->prepare("SELECT * FROM fuel_receipt_attachments WHERE fuel_record_id IN ($in)");
     $stmt2->execute($ids);
     foreach ($stmt2->fetchAll(PDO::FETCH_ASSOC) as $att) {
         $attachments[$att['fuel_record_id']][] = $att;
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
         }
 
         // อัปเดตสถานะเป็น rejected พร้อมหมายเหตุแทนการลบ
-        $sql = "UPDATE FuelRecords SET status='rejected', notes=? WHERE fuel_record_id=?";
+        $sql = "UPDATE fuel_records SET status='rejected', notes=? WHERE fuel_record_id=?";
         $stmt = $conn->prepare($sql);
         $stmt->execute([$notes, $fuel_record_id]);
         header("Location: orderlist.php");

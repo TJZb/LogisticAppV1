@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $role = $_POST['role'];
         $employee_id = !empty($_POST['employee_id']) ? $_POST['employee_id'] : null;
         $active = isset($_POST['active']) ? 1 : 0;
-        $stmt = $conn->prepare("INSERT INTO Users (username, password_hash, role, employee_id, active) VALUES (?, ?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role, employee_id, active) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$username, $password_hash, $role, $employee_id, $active]);
         $msg = "เพิ่มผู้ใช้สำเร็จ";
     }

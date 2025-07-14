@@ -79,14 +79,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
 
     if (isset($_POST['edit_id']) && $_POST['edit_id'] !== '') {
         // UPDATE - ตรวจสอบว่าทะเบียนซ้ำกับรถคันอื่นหรือไม่
-        $stmt_check = $conn->prepare("SELECT vehicle_id FROM Vehicles WHERE license_plate = ? AND vehicle_id != ?");
+        $stmt_check = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE license_plate = ? AND vehicle_id != ?");
         $stmt_check->execute([$license_plate, $_POST['edit_id']]);
         if ($stmt_check->rowCount() > 0) {
             echo "<script>alert('ทะเบียนรถนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
             exit;
         }
         
-        $sql = "UPDATE Vehicles SET license_plate=?, make=?, model=?, year=?, vin=?, engine_number=?, color=?, current_mileage=?, acquisition_date=?, asset_tag=?, vehicle_type=?, fuel_type=?, department=?, status=?, last_updated_by_employee_id=?, last_updated_at=?
+        $sql = "UPDATE vehicles SET license_plate=?, make=?, model=?, year=?, vin=?, engine_number=?, color=?, current_mileage=?, acquisition_date=?, asset_tag=?, vehicle_type=?, fuel_type=?, department=?, status=?, last_updated_by_employee_id=?, last_updated_at=?
                 WHERE vehicle_id=?";
         $stmt = $conn->prepare($sql);
         try {
@@ -103,14 +103,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
         }
     } else {
         // INSERT - ตรวจสอบทะเบียนซ้ำ
-        $stmt_check = $conn->prepare("SELECT vehicle_id FROM Vehicles WHERE license_plate = ?");
+        $stmt_check = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE license_plate = ?");
         $stmt_check->execute([$license_plate]);
         if ($stmt_check->rowCount() > 0) {
             echo "<script>alert('ทะเบียนรถนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
             exit;
         }
         
-        $sql = "INSERT INTO Vehicles (license_plate, make, model, year, vin, engine_number, color, current_mileage, acquisition_date, asset_tag, vehicle_type, fuel_type, department, status, last_updated_by_employee_id, last_updated_at)
+        $sql = "INSERT INTO vehicles (license_plate, make, model, year, vin, engine_number, color, current_mileage, acquisition_date, asset_tag, vehicle_type, fuel_type, department, status, last_updated_by_employee_id, last_updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
         try {
@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
 
 // ลบข้อมูล
 if (isset($_GET['delete'])) {
-    $stmt = $conn->prepare("DELETE FROM Vehicles WHERE vehicle_id=?");
+    $stmt = $conn->prepare("DELETE FROM vehicles WHERE vehicle_id=?");
     $stmt->execute([$_GET['delete']]);
     header("Location: index.php");
     exit;
@@ -148,7 +148,7 @@ if (isset($_GET['trailer_delete'])) {
 
 // ดึงข้อมูลรถหลักและรถพ่วงรวมกัน
 $vehicles = [];
-$stmt = $conn->query("SELECT *, 'vehicle' AS type FROM Vehicles ORDER BY vehicle_id DESC");
+$stmt = $conn->query("SELECT *, 'vehicle' AS type FROM vehicles ORDER BY vehicle_id DESC");
 $vehicles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $stmt = $conn->query("SELECT trailer_id AS vehicle_id, trailer_name AS license_plate, '' AS make, '' AS model, '' AS year, '' AS vin, '' AS engine_number, '' AS color, '' AS current_mileage, '' AS acquisition_date, '' AS asset_tag, '' AS vehicle_type, '' AS fuel_type, status, 'trailer' AS type FROM Trailers ORDER BY trailer_id DESC");
 $trailers_as_vehicles = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -158,7 +158,7 @@ $vehicles = array_reverse($vehicles); // ให้รถพ่วงใหม่
 // ดึงข้อมูลรถที่จะแก้ไข (ถ้ามี)
 $edit_vehicle = null;
 if (isset($_GET['edit'])) {
-    $stmt = $conn->prepare("SELECT * FROM Vehicles WHERE vehicle_id=?");
+    $stmt = $conn->prepare("SELECT * FROM vehicles WHERE vehicle_id=?");
     $stmt->execute([$_GET['edit']]);
     $edit_vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
 }
@@ -195,8 +195,8 @@ if (isset($_GET['trailer_edit'])) {
             <?php
             // ประเภทรถพื้นฐาน
             $basic_vehicle_types = ['4 ล้อ', '6 ล้อ', '10 ล้อ', 'พ่วง'];
-            // ดึงรายการประเภทรถที่มีในฐานข้อมูล (Vehicles) ที่ไม่ใช่ประเภทพื้นฐาน
-            $db_vehicle_types = $conn->query("SELECT DISTINCT vehicle_type FROM Vehicles WHERE vehicle_type IS NOT NULL AND vehicle_type <> '' ORDER BY vehicle_type ASC")->fetchAll(PDO::FETCH_COLUMN);
+            // ดึงรายการประเภทรถที่มีในฐานข้อมูล (vehicles) ที่ไม่ใช่ประเภทพื้นฐาน
+            $db_vehicle_types = $conn->query("SELECT DISTINCT vehicle_type FROM vehicles WHERE vehicle_type IS NOT NULL AND vehicle_type <> '' ORDER BY vehicle_type ASC")->fetchAll(PDO::FETCH_COLUMN);
             $additional_types = array_diff($db_vehicle_types, $basic_vehicle_types);
             $vehicle_types = array_merge($basic_vehicle_types, $additional_types);
             ?>

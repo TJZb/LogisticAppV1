@@ -75,7 +75,7 @@ $data7d = [];
 for($i=6;$i>=0;$i--) {
     $d = date('Y-m-d', strtotime("-$i days"));
     $labels7d[] = date('d/m', strtotime($d));
-    $stmt = $conn->prepare("SELECT SUM(volume_liters) as total FROM FuelRecords WHERE CONVERT(date, fuel_date) = ? AND status IN ('pending', 'approved')");
+    $stmt = $conn->prepare("SELECT SUM(volume_liters) as total FROM fuel_records WHERE CONVERT(date, fuel_date) = ? AND status IN ('pending', 'approved')");
     $stmt->execute([$d]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $data7d[] = $row['total'] ? floatval($row['total']) : 0;
@@ -86,7 +86,7 @@ $data1m = [];
 for($i=29;$i>=0;$i--) {
     $d = date('Y-m-d', strtotime("-$i days"));
     $labels1m[] = date('d/m', strtotime($d));
-    $stmt = $conn->prepare("SELECT SUM(volume_liters) as total FROM FuelRecords WHERE CONVERT(date, fuel_date) = ? AND status IN ('pending', 'approved')");
+    $stmt = $conn->prepare("SELECT SUM(volume_liters) as total FROM fuel_records WHERE CONVERT(date, fuel_date) = ? AND status IN ('pending', 'approved')");
     $stmt->execute([$d]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $data1m[] = $row['total'] ? floatval($row['total']) : 0;
@@ -97,7 +97,7 @@ $data1y = [];
 for($i=11;$i>=0;$i--) {
     $month = date('Y-m', strtotime("-$i months"));
     $labels1y[] = date('m/Y', strtotime($month.'-01'));
-    $stmt = $conn->prepare("SELECT SUM(volume_liters) as total FROM FuelRecords WHERE FORMAT(fuel_date, 'yyyy-MM') = ? AND status IN ('pending', 'approved')");
+    $stmt = $conn->prepare("SELECT SUM(volume_liters) as total FROM fuel_records WHERE FORMAT(fuel_date, 'yyyy-MM') = ? AND status IN ('pending', 'approved')");
     $stmt->execute([$month]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $data1y[] = $row['total'] ? floatval($row['total']) : 0;
