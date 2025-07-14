@@ -213,8 +213,11 @@ if (isset($_GET['trailer_edit'])) {
             <?php
             // ประเภทรถพื้นฐาน
             $basic_vehicle_types = ['4 ล้อ', '6 ล้อ', '10 ล้อ', 'พ่วง'];
-            // ดึงรายการประเภทรถที่มีในฐานข้อมูล (vehicles) ที่ไม่ใช่ประเภทพื้นฐาน
-            $db_vehicle_types = $conn->query("SELECT DISTINCT vehicle_type FROM vehicles WHERE vehicle_type IS NOT NULL AND vehicle_type <> '' ORDER BY vehicle_type ASC")->fetchAll(PDO::FETCH_COLUMN);
+            // ดึงรายการประเภทรถที่มีในฐานข้อมูล (vehicles) โดยใช้ join กับ vehicle_categories
+            $db_vehicle_types = $conn->query("SELECT DISTINCT vc.category_name FROM vehicles v 
+                LEFT JOIN vehicle_categories vc ON v.category_id = vc.category_id 
+                WHERE vc.category_name IS NOT NULL AND vc.category_name <> '' 
+                ORDER BY vc.category_name ASC")->fetchAll(PDO::FETCH_COLUMN);
             $additional_types = array_diff($db_vehicle_types, $basic_vehicle_types);
             $vehicle_types = array_merge($basic_vehicle_types, $additional_types);
             ?>
