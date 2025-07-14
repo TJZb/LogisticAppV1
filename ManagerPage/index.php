@@ -63,17 +63,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['trailer_form'])) {
 // --- ส่วนจัดการรถหลัก (Vehicles) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
     $license_plate = trim($_POST['license_plate']);
+    $province = trim($_POST['province'] ?? '');
     $make = trim($_POST['make']);
     $model = trim($_POST['model']);
     $year = trim($_POST['year']);
     $vin = trim($_POST['vin']);
-    $engine_number = trim($_POST['engine_number']);
     $color = trim($_POST['color']);
-    $current_mileage = trim($_POST['current_mileage']);
-    $acquisition_date = trim($_POST['acquisition_date']);
-    $asset_tag = trim($_POST['asset_tag']);
     $vehicle_type = $_POST['vehicle_type'] === 'อื่นๆ' ? trim($_POST['vehicle_type_other']) : trim($_POST['vehicle_type']);
     $fuel_type = trim($_POST['fuel_type']);
+    $vehicle_description = trim($_POST['vehicle_description'] ?? '');
     $status = trim($_POST['status']);
     $last_updated_by_employee_id = $_SESSION['employee_id'] ?? 1;
     $last_updated_at = date('Y-m-d H:i:s');
@@ -92,12 +90,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
             exit;
         }
         
-        $sql = "UPDATE vehicles SET license_plate=?, make=?, model=?, year=?, vin=?, engine_number=?, color=?, current_mileage=?, acquisition_date=?, asset_tag=?, vehicle_type=?, fuel_type=?, status=?, last_updated_by_employee_id=?, last_updated_at=?
+        // UPDATE - First, handle vehicle type and brand
+        // Get or create brand_id
+        $brand_id = null;
+        if (!empty($make)) {
+            $stmt_brand = $conn->prepare("SELECT brand_id FROM vehicle_brands WHERE brand_name = ?");
+            $stmt_brand->execute([$make]);
+            $brand = $stmt_brand->fetch(PDO::FETCH_ASSOC);
+            if ($brand) {
+                $brand_id = $brand['brand_id'];
+            } else {
+                // Create new brand
+                $stmt_brand_insert = $conn->prepare("INSERT INTO vehicle_brands (brand_name, brand_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                $brand_code = strtoupper(substr($make, 0, 3)) . '_' . uniqid();
+                $stmt_brand_insert->execute([$make, $brand_code]);
+                $brand_id = $conn->lastInsertId();
+            }
+        }
+        
+        // Get or create category_id
+        $category_id = null;
+        if (!empty($vehicle_type)) {
+            $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_name = ?");
+            $stmt_cat->execute([$vehicle_type]);
+            $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
+            if ($category) {
+                $category_id = $category['category_id'];
+            } else {
+                // Create new category
+                $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                $category_code = strtoupper(str_replace(' ', '_', $vehicle_type));
+                $stmt_cat_insert->execute([$vehicle_type, $category_code]);
+                $category_id = $conn->lastInsertId();
+            }
+        }
+        
+        // Get or create fuel_type_id
+        $fuel_type_id = null;
+        if (!empty($fuel_type)) {
+            $stmt_fuel = $conn->prepare("SELECT fuel_type_id FROM fuel_types WHERE fuel_name = ?");
+            $stmt_fuel->execute([$fuel_type]);
+            $fuel = $stmt_fuel->fetch(PDO::FETCH_ASSOC);
+            if ($fuel) {
+                $fuel_type_id = $fuel['fuel_type_id'];
+            } else {
+                // Create new fuel type
+                $stmt_fuel_insert = $conn->prepare("INSERT INTO fuel_types (fuel_name, fuel_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                $fuel_code = strtoupper(substr($fuel_type, 0, 3)) . '_' . uniqid();
+                $stmt_fuel_insert->execute([$fuel_type, $fuel_code]);
+                $fuel_type_id = $conn->lastInsertId();
+            }
+        }
+        
+        $sql = "UPDATE vehicles SET license_plate=?, province=?, brand_id=?, model_name=?, year_manufactured=?, chassis_number=?, color=?, category_id=?, fuel_type_id=?, vehicle_description=?, status=?, updated_at=GETDATE()
                 WHERE vehicle_id=?";
         $stmt = $conn->prepare($sql);
         try {
             $stmt->execute([
-                $license_plate, $make, $model, $year, $vin, $engine_number, $color, $current_mileage, $acquisition_date, $asset_tag, $vehicle_type, $fuel_type, $status, $last_updated_by_employee_id, $last_updated_at, $_POST['edit_id']
+                $license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $vehicle_description, $status, $_POST['edit_id']
             ]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
@@ -116,12 +166,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
             exit;
         }
         
-        $sql = "INSERT INTO vehicles (license_plate, make, model, year, vin, engine_number, color, current_mileage, acquisition_date, asset_tag, vehicle_type, fuel_type, status, last_updated_by_employee_id, last_updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        // INSERT - Handle vehicle type and brand
+        // Get or create brand_id
+        $brand_id = null;
+        if (!empty($make)) {
+            $stmt_brand = $conn->prepare("SELECT brand_id FROM vehicle_brands WHERE brand_name = ?");
+            $stmt_brand->execute([$make]);
+            $brand = $stmt_brand->fetch(PDO::FETCH_ASSOC);
+            if ($brand) {
+                $brand_id = $brand['brand_id'];
+            } else {
+                // Create new brand
+                $stmt_brand_insert = $conn->prepare("INSERT INTO vehicle_brands (brand_name, brand_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                $brand_code = strtoupper(substr($make, 0, 3)) . '_' . uniqid();
+                $stmt_brand_insert->execute([$make, $brand_code]);
+                $brand_id = $conn->lastInsertId();
+            }
+        }
+        
+        // Get or create category_id
+        $category_id = null;
+        if (!empty($vehicle_type)) {
+            $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_name = ?");
+            $stmt_cat->execute([$vehicle_type]);
+            $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
+            if ($category) {
+                $category_id = $category['category_id'];
+            } else {
+                // Create new category
+                $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                $category_code = strtoupper(str_replace(' ', '_', $vehicle_type));
+                $stmt_cat_insert->execute([$vehicle_type, $category_code]);
+                $category_id = $conn->lastInsertId();
+            }
+        }
+        
+        // Get or create fuel_type_id
+        $fuel_type_id = null;
+        if (!empty($fuel_type)) {
+            $stmt_fuel = $conn->prepare("SELECT fuel_type_id FROM fuel_types WHERE fuel_name = ?");
+            $stmt_fuel->execute([$fuel_type]);
+            $fuel = $stmt_fuel->fetch(PDO::FETCH_ASSOC);
+            if ($fuel) {
+                $fuel_type_id = $fuel['fuel_type_id'];
+            } else {
+                // Create new fuel type
+                $stmt_fuel_insert = $conn->prepare("INSERT INTO fuel_types (fuel_name, fuel_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                $fuel_code = strtoupper(substr($fuel_type, 0, 3)) . '_' . uniqid();
+                $stmt_fuel_insert->execute([$fuel_type, $fuel_code]);
+                $fuel_type_id = $conn->lastInsertId();
+            }
+        }
+        
+        $sql = "INSERT INTO vehicles (license_plate, province, brand_id, model_name, year_manufactured, chassis_number, color, category_id, fuel_type_id, vehicle_description, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())";
         $stmt = $conn->prepare($sql);
         try {
             $stmt->execute([
-                $license_plate, $make, $model, $year, $vin, $engine_number, $color, $current_mileage, $acquisition_date, $asset_tag, $vehicle_type, $fuel_type, $status, $last_updated_by_employee_id, $last_updated_at
+                $license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $vehicle_description, $status
             ]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
@@ -157,9 +259,18 @@ $vehicles = [];
 $stmt = $conn->query("
     SELECT v.*, 
            CASE WHEN vc.category_code = 'TRAILER' THEN 'trailer' ELSE 'vehicle' END AS type,
-           vc.category_name
+           vc.category_name,
+           vc.category_name as vehicle_type,
+           vb.brand_name as make,
+           v.model_name as model,
+           v.year_manufactured as year,
+           NULL as current_mileage,
+           v.chassis_number as vin,
+           ft.fuel_name as fuel_type
     FROM vehicles v 
     LEFT JOIN vehicle_categories vc ON v.category_id = vc.category_id 
+    LEFT JOIN vehicle_brands vb ON v.brand_id = vb.brand_id
+    LEFT JOIN fuel_types ft ON v.fuel_type_id = ft.fuel_type_id
     WHERE v.is_deleted = 0 
     ORDER BY v.vehicle_id DESC
 ");
@@ -168,7 +279,13 @@ $vehicles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // ดึงข้อมูลรถที่จะแก้ไข (ถ้ามี)
 $edit_vehicle = null;
 if (isset($_GET['edit'])) {
-    $stmt = $conn->prepare("SELECT * FROM vehicles WHERE vehicle_id=? AND is_deleted = 0");
+    $stmt = $conn->prepare("SELECT v.*, vb.brand_name as make, v.model_name as model, v.year_manufactured as year, 
+                           vc.category_name as vehicle_type, v.chassis_number as vin, ft.fuel_name as fuel_type
+                           FROM vehicles v 
+                           LEFT JOIN vehicle_brands vb ON v.brand_id = vb.brand_id
+                           LEFT JOIN vehicle_categories vc ON v.category_id = vc.category_id
+                           LEFT JOIN fuel_types ft ON v.fuel_type_id = ft.fuel_type_id
+                           WHERE v.vehicle_id=? AND v.is_deleted = 0");
     $stmt->execute([$_GET['edit']]);
     $edit_vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
 }
@@ -286,10 +403,10 @@ if (isset($_GET['trailer_edit'])) {
                 <?php foreach ($filtered_vehicles as $v): ?>
                     <tr class="even:bg-[#111827] odd:bg-[#1f2937] hover:bg-[#374151] transition-colors">
                         <td class="px-4 py-2"><?=htmlspecialchars($v['license_plate'])?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['make']) : '-' ?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['model']) : '-' ?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['year']) : '-' ?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['current_mileage']) : '-' ?></td>
+                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['make'] ?? '-') : '-' ?></td>
+                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['model'] ?? '-') : '-' ?></td>
+                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['year'] ?? '-') : '-' ?></td>
+                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['current_mileage'] ?? '-') : '-' ?></td>
                         <!-- Department cell removed as field doesn't exist in database -->
                         <td class="px-4 py-2">
                             <?php
@@ -314,132 +431,119 @@ if (isset($_GET['trailer_edit'])) {
             </table>
         </div>
 
-        <!-- Modal ฟอร์มรถหลัก -->
-        <div id="vehicleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 overflow-y-auto max-h-screen hidden">
-            <div class="bg-[#1f2937] rounded-2xl shadow-xl p-4 sm:p-8 max-w-xs sm:max-w-lg md:max-w-2xl w-full relative text-[#e0e0e0] mt-4 sm:mt-0">
-                <button onclick="closeVehicleModal()" class="absolute top-2 right-2 text-2xl text-[#f87171] hover:text-[#ef4444] font-bold">&times;</button>
-                <h2 id="vehicleModalTitle" class="text-xl font-bold mb-4 text-[#60a5fa]">เพิ่มรถ</h2>
-                <form id="vehicleForm" method="post" class="space-y-5">
+        <!-- Add Vehicle Modal -->
+        <div id="vehicleModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-xl p-8 m-4 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="vehicleModalTitle" class="text-2xl font-bold text-gray-800">เพิ่มรถใหม่</h2>
+                    <button onclick="closeVehicleModal()" class="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+                </div>
+                
+                <form id="vehicleForm" method="post" class="space-y-6">
                     <input type="hidden" name="edit_id" id="vehicle_edit_id">
-                    <!-- ฟอร์มรถหลัก -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:space-y-0 space-y-4">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block font-semibold mb-2">ทะเบียน</label>
-                            <input type="text" name="license_plate" id="license_plate" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]" required>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ทะเบียนรถ</label>
+                            <input type="text" name="license_plate" id="license_plate" placeholder="กข-1234" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
                         </div>
                         <div>
-                            <label class="block font-semibold mb-2">ยี่ห้อ</label>
-                            <input type="text" name="make" id="make" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]" required>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">จังหวัด</label>
+                            <input type="text" name="province" id="province" placeholder="กรุงเทพมหานคร" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ยี่ห้อ</label>
+                            <select name="make" id="make" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                                <option value="">เลือกยี่ห้อ</option>
+                                <option value="Isuzu">Isuzu</option>
+                                <option value="Hino">Hino</option>
+                                <option value="Mercedes-Benz">Mercedes-Benz</option>
+                                <option value="Volvo">Volvo</option>
+                                <option value="Scania">Scania</option>
+                                <option value="Mitsubishi">Mitsubishi</option>
+                                <option value="Toyota">Toyota</option>
+                                <option value="Ford">Ford</option>
+                                <option value="UD Trucks">UD Trucks</option>
+                                <option value="MAN">MAN</option>
+                                <option value="Other">อื่นๆ</option>
+                            </select>
                         </div>
                         <div>
-                            <label class="block font-semibold mb-2">รุ่น</label>
-                            <input type="text" name="model" id="model" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]" required>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">รุ่น</label>
+                            <input type="text" name="model" id="model" placeholder="FRR 90 N" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ปีที่ผลิต</label>
+                            <input type="number" name="year" id="year" placeholder="2023" min="1990" max="2025" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
                         </div>
                         <div>
-                            <label class="block font-semibold mb-2">ปี</label>
-                            <input type="number" name="year" id="year" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]" required>
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-2">VIN</label>
-                            <input type="text" name="vin" id="vin" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-2">เลขเครื่องยนต์</label>
-                            <input type="text" name="engine_number" id="engine_number" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-2">สี</label>
-                            <input type="text" name="color" id="color" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-2">เลขไมล์ปัจจุบัน</label>
-                            <input type="number" name="current_mileage" id="current_mileage" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-2">วันที่รับรถ</label>
-                            <input type="date" name="acquisition_date" id="acquisition_date" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-2">Asset Tag</label>
-                            <input type="text" name="asset_tag" id="asset_tag" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
-                        </div>
-                        <div>
-                            <label class="block font-semibold mb-2">ประเภทรถ</label>
-                            <?php
-                            // ประเภทรถพื้นฐาน
-                            $basic_vehicle_types = ['4 ล้อ', '6 ล้อ', '10 ล้อ', 'พ่วง'];
-                            // ดึงรายการประเภทรถที่มีในฐานข้อมูล (Vehicles) ที่ไม่ใช่ประเภทพื้นฐาน
-                            $db_vehicle_types = $conn->query("SELECT DISTINCT vehicle_type FROM vehicles WHERE vehicle_type IS NOT NULL AND vehicle_type <> '' ORDER BY vehicle_type ASC")->fetchAll(PDO::FETCH_COLUMN);
-                            $additional_types = array_diff($db_vehicle_types, $basic_vehicle_types);
-                            $vehicle_types_form = array_merge($basic_vehicle_types, $additional_types);
-                            ?>
-                            <select name="vehicle_type" id="vehicle_type" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]" required>
-                                <?php foreach ($vehicle_types_form as $vt): ?>
-                                    <option value="<?=htmlspecialchars($vt)?>"><?=htmlspecialchars($vt)?></option>
-                                <?php endforeach; ?>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทรถ</label>
+                            <select name="vehicle_type" id="vehicle_type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                                <option value="">เลือกประเภท</option>
+                                <option value="รถบรรทุก">รถบรรทุก</option>
+                                <option value="รถถังน้ำมัน">รถถังน้ำมัน</option>
+                                <option value="รถพ่วง">รถพ่วง</option>
+                                <option value="รถกระบะ">รถกระบะ</option>
+                                <option value="4 ล้อ">4 ล้อ</option>
+                                <option value="6 ล้อ">6 ล้อ</option>
+                                <option value="10 ล้อ">10 ล้อ</option>
                                 <option value="อื่นๆ">อื่น ๆ</option>
                             </select>
-                            <input type="text" name="vehicle_type_other" id="vehicle_type_other" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] mt-2 hidden" placeholder="ระบุประเภทรถ...">
+                            <input type="text" name="vehicle_type_other" id="vehicle_type_other" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mt-2 hidden" placeholder="ระบุประเภทรถ...">
                         </div>
-<script>
-// Auto-prefix license plate with "พ่วง" if vehicle_type is "รถพ่วง"
-// Show input for "อื่น ๆ" type
-document.addEventListener('DOMContentLoaded', function() {
-    var vehicleType = document.getElementById('vehicle_type');
-    var licensePlate = document.getElementById('license_plate');
-    var vehicleTypeOther = document.getElementById('vehicle_type_other');
-    function updateLicensePlatePrefix() {
-        if (vehicleType.value === 'รถพ่วง') {
-            if (!licensePlate.value.startsWith('พ่วง')) {
-                licensePlate.value = 'พ่วง' + licensePlate.value.replace(/^พ่วง/, '');
-            }
-            licensePlate.readOnly = false;
-            licensePlate.addEventListener('input', enforcePrefix);
-        } else {
-            // Remove prefix if present
-            if (licensePlate.value.startsWith('พ่วง')) {
-                licensePlate.value = licensePlate.value.replace(/^พ่วง/, '');
-            }
-            licensePlate.readOnly = false;
-            licensePlate.removeEventListener('input', enforcePrefix);
-        }
-        // Show/hide "อื่น ๆ" input
-        if (vehicleType.value === 'อื่นๆ') {
-            vehicleTypeOther.classList.remove('hidden');
-            vehicleTypeOther.required = true;
-        } else {
-            vehicleTypeOther.classList.add('hidden');
-            vehicleTypeOther.required = false;
-            vehicleTypeOther.value = '';
-        }
-    }
-    function enforcePrefix() {
-        if (!licensePlate.value.startsWith('พ่วง')) {
-            licensePlate.value = 'พ่วง' + licensePlate.value.replace(/^พ่วง/, '');
-        }
-    }
-    vehicleType.addEventListener('change', updateLicensePlatePrefix);
-    // On modal open, set prefix if needed
-    updateLicensePlatePrefix();
-});
-</script>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block font-semibold mb-2">ชนิดน้ำมัน</label>
-                            <input type="text" name="fuel_type" id="fuel_type" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">VIN / เลขตัวถัง</label>
+                            <input type="text" name="vin" id="vin" placeholder="1HGBH41JXMN109186" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
-                        <!-- Department field removed as it doesn't exist in database -->
                         <div>
-                            <label class="block font-semibold mb-2">สถานะ</label>
-                            <select name="status" id="status" class="w-full text-base rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">สี</label>
+                            <input type="text" name="color" id="color" placeholder="ขาว" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ชนิดน้ำมัน</label>
+                            <select name="fuel_type" id="fuel_type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="">เลือกชนิดน้ำมัน</option>
+                                <option value="ดีเซล">ดีเซล</option>
+                                <option value="เบนซิน">เบนซิน</option>
+                                <option value="แก๊ส">แก๊ส</option>
+                                <option value="ไฟฟ้า">ไฟฟ้า</option>
+                                <option value="ไฮบริด">ไฮบริด</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">สถานะ</label>
+                            <select name="status" id="status" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="active">ใช้งาน</option>
-                                <option value="inactive">ไม่ใช้งาน</option>
                                 <option value="maintenance">ซ่อมบำรุง</option>
+                                <option value="inactive">ไม่ใช้งาน</option>
                             </select>
                         </div>
                     </div>
-                    <div class="mt-6 text-center flex flex-col md:flex-row gap-4 justify-center">
-                        <button type="submit" id="vehicleSubmitBtn" class="transition-all duration-150 bg-[#60a5fa] hover:bg-[#4ade80] text-[#111827] font-semibold px-6 py-2 rounded-lg shadow hover:scale-105 w-full md:w-auto">บันทึก</button>
-                        <button type="button" onclick="closeVehicleModal()" class="transition-all duration-150 bg-[#f87171] hover:bg-[#ef4444] text-white font-semibold px-6 py-2 rounded-lg shadow hover:scale-105 w-full md:w-auto">ยกเลิก</button>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
+                        <textarea name="vehicle_description" id="vehicle_description" rows="3" placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับรถ..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                    
+                    <div class="flex gap-4 pt-4">
+                        <button type="submit" id="vehicleSubmitBtn" class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-lg font-medium hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                            บันทึกข้อมูล
+                        </button>
+                        <button type="button" onclick="closeVehicleModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                            ยกเลิก
+                        </button>
                     </div>
                 </form>
             </div>
@@ -484,34 +588,49 @@ document.addEventListener('DOMContentLoaded', function() {
 let isSubmitting = false;
 
 function openVehicleModal() {
-    document.getElementById('vehicleModalTitle').innerText = 'เพิ่มรถ';
+    document.getElementById('vehicleModalTitle').innerText = 'เพิ่มรถใหม่';
     document.getElementById('vehicleForm').reset();
     document.getElementById('vehicle_edit_id').value = '';
+    document.getElementById('vehicle_type_other').classList.add('hidden');
+    document.getElementById('vehicle_type_other').required = false;
     document.getElementById('vehicleModal').classList.remove('hidden');
+    document.getElementById('vehicleModal').style.display = 'flex';
     isSubmitting = false;
 }
 function closeVehicleModal() {
     document.getElementById('vehicleModal').classList.add('hidden');
+    document.getElementById('vehicleModal').style.display = 'none';
     isSubmitting = false;
 }
 function editVehicle(data) {
     document.getElementById('vehicleModalTitle').innerText = 'แก้ไขข้อมูลรถ';
     document.getElementById('vehicle_edit_id').value = data.vehicle_id || '';
     document.getElementById('license_plate').value = data.license_plate || '';
+    document.getElementById('province').value = data.province || '';
     document.getElementById('make').value = data.make || '';
     document.getElementById('model').value = data.model || '';
     document.getElementById('year').value = data.year || '';
-    document.getElementById('vin').value = data.vin || '';
-    document.getElementById('engine_number').value = data.engine_number || '';
+    document.getElementById('vin').value = data.vin || data.chassis_number || '';
     document.getElementById('color').value = data.color || '';
-    document.getElementById('current_mileage').value = data.current_mileage || '';
-    document.getElementById('acquisition_date').value = data.acquisition_date || '';
-    document.getElementById('asset_tag').value = data.asset_tag || '';
-    document.getElementById('vehicle_type').value = data.vehicle_type || '';
+    document.getElementById('vehicle_type').value = data.vehicle_type || data.category_name || '';
     document.getElementById('fuel_type').value = data.fuel_type || '';
-    // Department field removed as it doesn't exist in database
+    document.getElementById('vehicle_description').value = data.vehicle_description || '';
     document.getElementById('status').value = data.status || 'active';
+    
+    // Show/hide "อื่น ๆ" input based on vehicle type
+    if (data.vehicle_type === 'อื่นๆ' || (data.category_name && !['รถบรรทุก', 'รถถังน้ำมัน', 'รถพ่วง', 'รถกระบะ', '4 ล้อ', '6 ล้อ', '10 ล้อ'].includes(data.category_name))) {
+        document.getElementById('vehicle_type').value = 'อื่นๆ';
+        document.getElementById('vehicle_type_other').classList.remove('hidden');
+        document.getElementById('vehicle_type_other').value = data.vehicle_type || data.category_name || '';
+        document.getElementById('vehicle_type_other').required = true;
+    } else {
+        document.getElementById('vehicle_type_other').classList.add('hidden');
+        document.getElementById('vehicle_type_other').required = false;
+        document.getElementById('vehicle_type_other').value = '';
+    }
+    
     document.getElementById('vehicleModal').classList.remove('hidden');
+    document.getElementById('vehicleModal').style.display = 'flex';
     isSubmitting = false;
 }
 
@@ -541,6 +660,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const trailerForm = document.getElementById('trailerForm');
     const vehicleSubmitBtn = document.getElementById('vehicleSubmitBtn');
     const trailerSubmitBtn = document.getElementById('trailerSubmitBtn');
+    const vehicleType = document.getElementById('vehicle_type');
+    const vehicleTypeOther = document.getElementById('vehicle_type_other');
+    
+    // Handle vehicle type change
+    if (vehicleType && vehicleTypeOther) {
+        vehicleType.addEventListener('change', function() {
+            if (this.value === 'อื่นๆ') {
+                vehicleTypeOther.classList.remove('hidden');
+                vehicleTypeOther.required = true;
+            } else {
+                vehicleTypeOther.classList.add('hidden');
+                vehicleTypeOther.required = false;
+                vehicleTypeOther.value = '';
+            }
+        });
+    }
     
     if (vehicleForm) {
         vehicleForm.addEventListener('submit', function(e) {
@@ -554,9 +689,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const make = document.getElementById('make').value.trim();
             const model = document.getElementById('model').value.trim();
             const year = document.getElementById('year').value.trim();
+            const vehicleTypeVal = document.getElementById('vehicle_type').value.trim();
             
-            if (!licensePlate || !make || !model || !year) {
+            if (!licensePlate || !make || !model || !year || !vehicleTypeVal) {
                 alert('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
+                e.preventDefault();
+                return false;
+            }
+            
+            // ตรวจสอบว่าถ้าเลือก "อื่นๆ" ต้องระบุประเภท
+            if (vehicleTypeVal === 'อื่นๆ' && !vehicleTypeOther.value.trim()) {
+                alert('กรุณาระบุประเภทรถ');
+                vehicleTypeOther.focus();
                 e.preventDefault();
                 return false;
             }
