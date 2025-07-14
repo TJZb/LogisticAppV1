@@ -48,12 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
     }
 
     // ดึงเลขไมล์ล่าสุดก่อนวันที่ในใบเสร็จที่กำลังอนุมัติ (ย้อนหลัง)
-    $stmt_before = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM FuelRecords WHERE vehicle_id = (SELECT vehicle_id FROM FuelRecords WHERE fuel_record_id = ?) AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date < ? ORDER BY fuel_date DESC");
+    $stmt_before = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM fuel_records WHERE vehicle_id = (SELECT vehicle_id FROM fuel_records WHERE fuel_record_id = ?) AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date < ? ORDER BY fuel_date DESC");
     $stmt_before->execute([$fuel_record_id, $fuel_record_id, $fuel_date_check]);
     $min_mileage = $stmt_before->fetchColumn();
     
     // ดึงเลขไมล์แรกหลังวันที่ในใบเสร็จที่กำลังอนุมัติ (ถัดไป)
-    $stmt_after = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM FuelRecords WHERE vehicle_id = (SELECT vehicle_id FROM FuelRecords WHERE fuel_record_id = ?) AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date > ? ORDER BY fuel_date ASC");
+    $stmt_after = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM fuel_records WHERE vehicle_id = (SELECT vehicle_id FROM fuel_records WHERE fuel_record_id = ?) AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date > ? ORDER BY fuel_date ASC");
     $stmt_after->execute([$fuel_record_id, $fuel_record_id, $fuel_date_check]);
     $max_mileage = $stmt_after->fetchColumn();
     
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
 
         // --- Begin: คำนวณระยะวิ่งรถหลัก + รถพ่วง ---
         // 1. ดึงเลขไมล์ล่าสุดของรถหลัก (ก่อนบันทึกนี้และก่อนวันที่ในใบเสร็จ)
-        $stmt_last = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM FuelRecords WHERE vehicle_id = (SELECT vehicle_id FROM FuelRecords WHERE fuel_record_id = ?) AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date <= ? ORDER BY fuel_date DESC");
+        $stmt_last = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM fuel_records WHERE vehicle_id = (SELECT vehicle_id FROM fuel_records WHERE fuel_record_id = ?) AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date <= ? ORDER BY fuel_date DESC");
         $stmt_last->execute([$fuel_record_id, $fuel_record_id, $fuel_date]);
         $last_main_mileage = $stmt_last->fetchColumn();
         $main_distance = null;
@@ -106,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
         }
 
         // 2. จัดการเลขไมล์รถพ่วง (ถ้ามี)
-        $stmt_trailer_id = $conn->prepare("SELECT trailer_vehicle_id FROM FuelRecords WHERE fuel_record_id = ?");
+        $stmt_trailer_id = $conn->prepare("SELECT trailer_vehicle_id FROM fuel_records WHERE fuel_record_id = ?");
         $stmt_trailer_id->execute([$fuel_record_id]);
         $trailer_vehicle_id = $stmt_trailer_id->fetchColumn();
         $trailer_distance = 0;
@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
 
         if ($trailer_vehicle_id && $main_distance !== null) {
             // ดึงเลขไมล์ปัจจุบันของรถพ่วงจาก Vehicles table
-            $stmt_trailer = $conn->prepare("SELECT current_mileage FROM Vehicles WHERE vehicle_id = ?");
+            $stmt_trailer = $conn->prepare("SELECT current_mileage FROM vehicles WHERE vehicle_id = ?");
             $stmt_trailer->execute([$trailer_vehicle_id]);
             $trailer_current_mileage = $stmt_trailer->fetchColumn();
 
@@ -146,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
         }
 
         // อัปเดต Vehicles (รถหลัก)
-        $stmt_main_vehicle = $conn->prepare("UPDATE Vehicles SET current_mileage = ? WHERE vehicle_id = (SELECT vehicle_id FROM FuelRecords WHERE fuel_record_id = ?)");
+        $stmt_main_vehicle = $conn->prepare("UPDATE vehicles SET current_mileage = ? WHERE vehicle_id = (SELECT vehicle_id FROM fuel_records WHERE fuel_record_id = ?)");
         $stmt_main_vehicle->execute([$mileage, $fuel_record_id]);
 
         // อัปเดต FuelRecords พร้อมกับ trailer_mileage_at_fuel
@@ -256,7 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
                                     // ดึงเลขไมล์ล่าสุดของรถพ่วง (ถ้ามี)
                                     $trailer_mileage = '';
                                     if (!empty($order['trailer_vehicle_id'])) {
-                                        $stmt_trailer = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM FuelRecords WHERE vehicle_id = ? AND mileage_at_fuel IS NOT NULL ORDER BY fuel_date DESC");
+                                        $stmt_trailer = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM fuel_records WHERE vehicle_id = ? AND mileage_at_fuel IS NOT NULL ORDER BY fuel_date DESC");
                                         $stmt_trailer->execute([$order['trailer_vehicle_id']]);
                                         $trailer_mileage = $stmt_trailer->fetchColumn();
                                     }
@@ -368,12 +368,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
                                         <label class="block font-semibold mb-1">เลขไมล์ขณะเติม (รถหลัก)</label>
                                         <?php
                                         // ดึงเลขไมล์ล่าสุดก่อนวันที่ปัจจุบัน (ย้อนหลัง)
-                                        $stmt_before = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM FuelRecords WHERE vehicle_id = ? AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date < ? ORDER BY fuel_date DESC");
+                                        $stmt_before = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM fuel_records WHERE vehicle_id = ? AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date < ? ORDER BY fuel_date DESC");
                                         $stmt_before->execute([$order['vehicle_id'], $order['fuel_record_id'], $order['fuel_date']]);
                                         $initial_min_mileage = $stmt_before->fetchColumn();
                                         
                                         // ดึงเลขไมล์แรกหลังวันที่ปัจจุบัน (ถัดไป)
-                                        $stmt_after = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM FuelRecords WHERE vehicle_id = ? AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date > ? ORDER BY fuel_date ASC");
+                                        $stmt_after = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM fuel_records WHERE vehicle_id = ? AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date > ? ORDER BY fuel_date ASC");
                                         $stmt_after->execute([$order['vehicle_id'], $order['fuel_record_id'], $order['fuel_date']]);
                                         $initial_max_mileage = $stmt_after->fetchColumn();
                                         

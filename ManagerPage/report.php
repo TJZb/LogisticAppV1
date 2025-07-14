@@ -7,30 +7,87 @@ auth(['admin', 'manager']);
 
 $conn = connect_db();
 
-// ดึงข้อมูลสรุปจาก Views
+// ดึงข้อมูลสรุปจาก Tables และ Views ที่มีอยู่
 try {
-    // รายงานสรุปรถทั้งหมด
-    $stmt = $conn->query("SELECT * FROM VehicleSummaryReport");
+    // รายงานสรุปรถทั้งหมด (ใช้การนับจากตาราง vehicles โดยตรง)
+    $stmt = $conn->query("
+        SELECT 
+            COUNT(*) as total_vehicles,
+            SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_vehicles,
+            SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as maintenance_vehicles,
+            SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END) as in_use_vehicles,
+            SUM(CASE WHEN status = 'out_of_service' THEN 1 ELSE 0 END) as out_of_service_vehicles
+        FROM vehicles 
+        WHERE is_deleted = 0
+    ");
     $vehicleSummary = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // รายงานตามประเภทรถ
-    $stmt = $conn->query("SELECT * FROM VehicleStatsByCategory ORDER BY total_vehicles DESC");
+    // รายงานตามประเภทรถ (ใช้จาก VehicleDetailsView)
+    $stmt = $conn->query("
+        SELECT 
+            category_name,
+            COUNT(*) as total_vehicles
+        FROM VehicleDetailsView 
+        GROUP BY category_name 
+        ORDER BY total_vehicles DESC
+    ");
     $categoryStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // รายงานตามยี่ห้อ
-    $stmt = $conn->query("SELECT TOP 10 * FROM VehicleStatsByBrand ORDER BY total_vehicles DESC");
+    $stmt = $conn->query("
+        SELECT TOP 10
+            brand_name,
+            COUNT(*) as total_vehicles
+        FROM VehicleDetailsView 
+        GROUP BY brand_name 
+        ORDER BY total_vehicles DESC
+    ");
     $brandStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // รายงานตามประเภทเชื้อเพลิง
-    $stmt = $conn->query("SELECT * FROM VehicleStatsByFuelType ORDER BY total_vehicles DESC");
+    $stmt = $conn->query("
+        SELECT 
+            fuel_name,
+            COUNT(*) as total_vehicles
+        FROM VehicleDetailsView 
+        GROUP BY fuel_name 
+        ORDER BY total_vehicles DESC
+    ");
     $fuelStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // รายงานตามจังหวัด
-    $stmt = $conn->query("SELECT TOP 10 * FROM VehicleStatsByProvince ORDER BY total_vehicles DESC");
+    $stmt = $conn->query("
+        SELECT TOP 10
+            province,
+            COUNT(*) as total_vehicles
+        FROM VehicleDetailsView 
+        GROUP BY province 
+        ORDER BY total_vehicles DESC
+    ");
     $provinceStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // รายงานตามช่วงปี
-    $stmt = $conn->query("SELECT * FROM VehicleStatsByYearRange ORDER BY min_year DESC");
+    $stmt = $conn->query("
+        SELECT 
+            CASE 
+                WHEN vehicle_age <= 5 THEN '0-5 ปี'
+                WHEN vehicle_age <= 10 THEN '6-10 ปี'
+                WHEN vehicle_age <= 15 THEN '11-15 ปี'
+                ELSE 'มากกว่า 15 ปี'
+            END as year_range,
+            COUNT(*) as total_vehicles,
+            MIN(year_manufactured) as min_year,
+            MAX(year_manufactured) as max_year
+        FROM VehicleDetailsView 
+        GROUP BY 
+            CASE 
+                WHEN vehicle_age <= 5 THEN '0-5 ปี'
+                WHEN vehicle_age <= 10 THEN '6-10 ปี'
+                WHEN vehicle_age <= 15 THEN '11-15 ปี'
+                ELSE 'มากกว่า 15 ปี'
+            END
+        ORDER BY min_year DESC
+    ");
     $yearRangeStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // รายงานรถที่มีอายุมาก (>10 ปี)
@@ -101,6 +158,82 @@ for($i=11;$i>=0;$i--) {
     $stmt->execute([$month]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $data1y[] = $row['total'] ? floatval($row['total']) : 0;
+}
+
+// ดึงข้อมูลสรุปทั้งหมด
+try {
+    $stmt = $conn->query("
+        SELECT 
+            COUNT(*) as total_fills,
+            SUM(volume_liters) as total_liters,
+            SUM(total_cost) as total_cost
+        FROM fuel_records 
+        WHERE status IN ('pending', 'approved')
+    ");
+    $summary = $stmt->fetch(PDO::FETCH_ASSOC);
+    $total_fills = $summary['total_fills'] ?? 0;
+    $total_liters = $summary['total_liters'] ?? 0;
+    $total_cost = $summary['total_cost'] ?? 0;
+} catch (Exception $e) {
+    $total_fills = 0;
+    $total_liters = 0;
+    $total_cost = 0;
+}
+
+// ดึงข้อมูล Top 5 รถที่เติมน้ำมันมากที่สุด
+try {
+    $stmt = $conn->query("
+        SELECT TOP 5
+            v.license_plate,
+            COUNT(f.fuel_record_id) as fill_count,
+            SUM(f.volume_liters) as total_liters,
+            SUM(f.total_cost) as total_cost
+        FROM fuel_records f
+        JOIN vehicles v ON f.vehicle_id = v.vehicle_id
+        WHERE f.status IN ('pending', 'approved')
+        GROUP BY v.license_plate, v.vehicle_id
+        ORDER BY total_liters DESC
+    ");
+    $top5 = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $top5 = [];
+}
+
+// ดึงข้อมูลสรุปรายเดือน
+try {
+    $stmt = $conn->query("
+        SELECT 
+            FORMAT(fuel_date, 'yyyy-MM') as month,
+            COUNT(*) as fill_count,
+            SUM(volume_liters) as total_liters,
+            SUM(total_cost) as total_cost
+        FROM fuel_records 
+        WHERE status IN ('pending', 'approved')
+        GROUP BY FORMAT(fuel_date, 'yyyy-MM')
+        ORDER BY month DESC
+    ");
+    $monthly = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $monthly = [];
+}
+
+// ดึงข้อมูลสรุปแยกตามรถ
+try {
+    $stmt = $conn->query("
+        SELECT 
+            v.license_plate,
+            COUNT(f.fuel_record_id) as fill_count,
+            SUM(f.volume_liters) as total_liters,
+            SUM(f.total_cost) as total_cost
+        FROM fuel_records f
+        JOIN vehicles v ON f.vehicle_id = v.vehicle_id
+        WHERE f.status IN ('pending', 'approved')
+        GROUP BY v.license_plate, v.vehicle_id
+        ORDER BY total_liters DESC
+    ");
+    $bycar = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $bycar = [];
 }
 ?>
 <?php include '../container/header.php'; ?>
