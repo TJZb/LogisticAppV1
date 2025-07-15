@@ -141,6 +141,7 @@ BEGIN
         gross_weight DECIMAL(8,2) NULL,
         seating_capacity INT NULL,
         category_id INT NULL,
+        current_mileage INT NULL,
         status NVARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'maintenance', 'in_use', 'out_of_service', 'sold')),
         vehicle_description NVARCHAR(MAX) NULL,
         is_deleted BIT DEFAULT 0,
@@ -525,6 +526,34 @@ LEFT JOIN fuel_records fr ON v.vehicle_id = fr.vehicle_id AND fr.status = 'appro
 LEFT JOIN vehicle_brands vb ON v.brand_id = vb.brand_id
 WHERE v.is_deleted = 0
 GROUP BY v.vehicle_id, v.license_plate, vb.brand_name, v.model_name
+GO
+
+-- =============================================
+-- อัปเดต current_mileage จากข้อมูลประวัติการเติมน้ำมัน
+-- =============================================
+
+PRINT N'กำลังอัปเดตเลขไมล์ปัจจุบันจากข้อมูลประวัติ...';
+
+-- อัปเดต current_mileage จากข้อมูล odometer_reading ล่าสุด
+UPDATE vehicles 
+SET current_mileage = (
+    SELECT TOP 1 fr.odometer_reading 
+    FROM fuel_records fr 
+    WHERE fr.vehicle_id = vehicles.vehicle_id 
+    AND fr.odometer_reading IS NOT NULL 
+    ORDER BY fr.fuel_date DESC
+)
+WHERE vehicles.vehicle_id IN (
+    SELECT DISTINCT vehicle_id 
+    FROM fuel_records 
+    WHERE odometer_reading IS NOT NULL
+)
+
+-- แสดงสถิติการอัปเดต
+DECLARE @updated_count INT = @@ROWCOUNT;
+DECLARE @total_vehicles INT = (SELECT COUNT(*) FROM vehicles WHERE is_deleted = 0);
+PRINT N'อัปเดตเลขไมล์ให้กับ ' + CAST(@updated_count AS NVARCHAR(10)) + ' คัน จากทั้งหมด ' + CAST(@total_vehicles AS NVARCHAR(10)) + ' คัน';
+
 GO
 
 -- =============================================

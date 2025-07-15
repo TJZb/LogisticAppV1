@@ -71,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
     $color = trim($_POST['color']);
     $vehicle_type = $_POST['vehicle_type'] === 'อื่นๆ' ? trim($_POST['vehicle_type_other']) : trim($_POST['vehicle_type']);
     $fuel_type = trim($_POST['fuel_type']);
+    $current_mileage = !empty($_POST['current_mileage']) ? intval($_POST['current_mileage']) : null;
     $vehicle_description = trim($_POST['vehicle_description'] ?? '');
     $status = trim($_POST['status']);
     $last_updated_by_employee_id = $_SESSION['employee_id'] ?? 1;
@@ -142,12 +143,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
             }
         }
         
-        $sql = "UPDATE vehicles SET license_plate=?, province=?, brand_id=?, model_name=?, year_manufactured=?, chassis_number=?, color=?, category_id=?, fuel_type_id=?, vehicle_description=?, status=?, updated_at=GETDATE()
+        $sql = "UPDATE vehicles SET license_plate=?, province=?, brand_id=?, model_name=?, year_manufactured=?, chassis_number=?, color=?, category_id=?, fuel_type_id=?, current_mileage=?, vehicle_description=?, status=?, updated_at=GETDATE()
                 WHERE vehicle_id=?";
         $stmt = $conn->prepare($sql);
         try {
             $stmt->execute([
-                $license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $vehicle_description, $status, $_POST['edit_id']
+                $license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $current_mileage, $vehicle_description, $status, $_POST['edit_id']
             ]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
@@ -218,12 +219,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
             }
         }
         
-        $sql = "INSERT INTO vehicles (license_plate, province, brand_id, model_name, year_manufactured, chassis_number, color, category_id, fuel_type_id, vehicle_description, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())";
+        $sql = "INSERT INTO vehicles (license_plate, province, brand_id, model_name, year_manufactured, chassis_number, color, category_id, fuel_type_id, current_mileage, vehicle_description, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())";
         $stmt = $conn->prepare($sql);
         try {
             $stmt->execute([
-                $license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $vehicle_description, $status
+                $license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $current_mileage, $vehicle_description, $status
             ]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
@@ -254,7 +255,7 @@ if (isset($_GET['trailer_delete'])) {
     exit;
 }
 
-// ดึงข้อมูลรถหลักและรถพ่วงรวมกัน จากตาราง vehicles เดียวกัน
+// ดึงข้อมูลรถหลักและรถพ่วงรวมกัน จากตาราง vehicles เดียวกัน พร้อมเลขไมล์ปัจจุบัน
 $vehicles = [];
 $stmt = $conn->query("
     SELECT v.*, 
@@ -264,7 +265,12 @@ $stmt = $conn->query("
            vb.brand_name as make,
            v.model_name as model,
            v.year_manufactured as year,
-           NULL as current_mileage,
+           v.current_mileage,
+           (SELECT TOP 1 fr.odometer_reading 
+            FROM fuel_records fr 
+            WHERE fr.vehicle_id = v.vehicle_id 
+            AND fr.odometer_reading IS NOT NULL 
+            ORDER BY fr.fuel_date DESC) AS last_odometer_reading,
            v.chassis_number as vin,
            ft.fuel_name as fuel_type
     FROM vehicles v 
@@ -401,12 +407,17 @@ if (isset($_GET['trailer_edit'])) {
                 }
                 ?>
                 <?php foreach ($filtered_vehicles as $v): ?>
+                    <?php
+                    // กำหนดเลขไมล์ที่จะแสดง
+                    $current_mileage = $v['current_mileage'] ?? $v['last_odometer_reading'] ?? null;
+                    $mileage_display = is_numeric($current_mileage) ? number_format($current_mileage) . ' กม.' : 'ไม่ระบุ';
+                    ?>
                     <tr class="even:bg-[#111827] odd:bg-[#1f2937] hover:bg-[#374151] transition-colors">
                         <td class="px-4 py-2"><?=htmlspecialchars($v['license_plate'])?></td>
                         <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['make'] ?? '-') : '-' ?></td>
                         <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['model'] ?? '-') : '-' ?></td>
                         <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['year'] ?? '-') : '-' ?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['current_mileage'] ?? '-') : '-' ?></td>
+                        <td class="px-4 py-2 <?= $v['type'] === 'vehicle' && is_numeric($current_mileage) ? 'text-[#fbbf24] font-semibold' : '' ?>"><?= $v['type'] === 'vehicle' ? $mileage_display : '-' ?></td>
                         <!-- Department cell removed as field doesn't exist in database -->
                         <td class="px-4 py-2">
                             <?php
@@ -523,13 +534,19 @@ if (isset($_GET['trailer_edit'])) {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">สถานะ</label>
-                            <select name="status" id="status" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
-                                <option value="active">ใช้งาน</option>
-                                <option value="maintenance">ซ่อมบำรุง</option>
-                                <option value="inactive">ไม่ใช้งาน</option>
-                            </select>
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">เลขไมล์ปัจจุบัน</label>
+                            <input type="number" name="current_mileage" id="current_mileage" placeholder="123456" min="0" step="1" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                            <p class="text-xs text-[#9ca3af] mt-1">หน่วย: กิโลเมตร</p>
                         </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-[#e5e7eb] mb-2">สถานะ</label>
+                        <select name="status" id="status" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                            <option value="active">ใช้งาน</option>
+                            <option value="maintenance">ซ่อมบำรุง</option>
+                            <option value="inactive">ไม่ใช้งาน</option>
+                        </select>
                     </div>
                     
                     <div>
@@ -614,6 +631,7 @@ function editVehicle(data) {
     document.getElementById('color').value = data.color || '';
     document.getElementById('vehicle_type').value = data.vehicle_type || data.category_name || '';
     document.getElementById('fuel_type').value = data.fuel_type || '';
+    document.getElementById('current_mileage').value = data.current_mileage || data.last_odometer_reading || '';
     document.getElementById('vehicle_description').value = data.vehicle_description || '';
     document.getElementById('status').value = data.status || 'active';
     
