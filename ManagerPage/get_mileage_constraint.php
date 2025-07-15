@@ -23,12 +23,12 @@ try {
     $conn = connect_db();
     
     // ดึงเลขไมล์ล่าสุดก่อนวันที่ที่เลือก (ย้อนหลัง)
-    $stmt_before = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM fuel_records WHERE vehicle_id = ? AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date < ? ORDER BY fuel_date DESC");
+    $stmt_before = $conn->prepare("SELECT TOP 1 odometer_reading FROM fuel_records WHERE vehicle_id = ? AND fuel_record_id <> ? AND odometer_reading IS NOT NULL AND fuel_date < ? ORDER BY fuel_date DESC");
     $stmt_before->execute([$vehicle_id, $fuel_record_id, $fuel_date]);
     $min_mileage = $stmt_before->fetchColumn();
     
     // ดึงเลขไมล์แรกหลังวันที่ที่เลือก (ถัดไป)
-    $stmt_after = $conn->prepare("SELECT TOP 1 mileage_at_fuel FROM fuel_records WHERE vehicle_id = ? AND fuel_record_id <> ? AND mileage_at_fuel IS NOT NULL AND fuel_date > ? ORDER BY fuel_date ASC");
+    $stmt_after = $conn->prepare("SELECT TOP 1 odometer_reading FROM fuel_records WHERE vehicle_id = ? AND fuel_record_id <> ? AND odometer_reading IS NOT NULL AND fuel_date > ? ORDER BY fuel_date ASC");
     $stmt_after->execute([$vehicle_id, $fuel_record_id, $fuel_date]);
     $max_mileage = $stmt_after->fetchColumn();
     
