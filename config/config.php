@@ -24,7 +24,7 @@ define('SESSION_TIMEOUT', 3600); // 1 ชั่วโมง
 // การตั้งค่าการอัปโหลดไฟล์
 define('UPLOAD_PATH', __DIR__ . '/../uploads/');
 define('MAX_FILE_SIZE', 52428800); // เพิ่มเป็น 50MB
-define('ALLOWED_EXTENSIONS', ['jpg', 'jpeg', 'png', 'pdf']);
+define('ALLOWED_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']); // ลบ pdf ออก
 
 // การตั้งค่าระบบ
 define('SYSTEM_NAME', 'ระบบจัดการขนส่ง');
