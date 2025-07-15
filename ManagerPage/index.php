@@ -6,14 +6,54 @@ $conn = connect_db();
 
 // --- ส่วนจัดการรถพ่วง (Trailers) - ใช้ตาราง vehicles ด้วย category_id สำหรับรถพ่วง ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['trailer_form'])) {
-    $license_plate = $_POST['trailer_license_plate'];
-    $status = $_POST['trailer_status'];
+    $license_plate = trim($_POST['license_plate']);
+    $province = trim($_POST['province'] ?? '');
+    $make = trim($_POST['make'] ?? '');
+    $model = trim($_POST['model'] ?? '');
+    $year = trim($_POST['year'] ?? '');
+    $vehicle_description = trim($_POST['vehicle_description'] ?? '');
+    $status = trim($_POST['status']);
+    
+    // เติม "พ่วง" ข้างหน้าทะเบียนหากยังไม่มี
+    if (substr($license_plate, 0, 4) !== 'พ่วง') {
+        $license_plate = 'พ่วง' . $license_plate;
+    }
+    
+    // ตรวจสอบว่าทะเบียนไม่ว่าง
+    if ($license_plate === '' || $license_plate === 'พ่วง') {
+        echo "<script>alert('กรุณากรอกทะเบียนรถ');window.history.back();</script>";
+        exit;
+    }
     
     // หา category_id สำหรับรถพ่วง
     $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_code = 'TRAILER'");
     $stmt_cat->execute();
     $trailer_category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
-    $trailer_category_id = $trailer_category['category_id'] ?? 1;
+    $trailer_category_id = $trailer_category['category_id'] ?? null;
+    
+    if (!$trailer_category_id) {
+        // Create TRAILER category if not exists
+        $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+        $stmt_cat_insert->execute(['รถพ่วง', 'TRAILER']);
+        $trailer_category_id = $conn->lastInsertId();
+    }
+    
+    // Get or create brand_id สำหรับรถพ่วง
+    $brand_id = null;
+    if (!empty($make)) {
+        $stmt_brand = $conn->prepare("SELECT brand_id FROM vehicle_brands WHERE brand_name = ?");
+        $stmt_brand->execute([$make]);
+        $brand = $stmt_brand->fetch(PDO::FETCH_ASSOC);
+        if ($brand) {
+            $brand_id = $brand['brand_id'];
+        } else {
+            // Create new brand
+            $stmt_brand_insert = $conn->prepare("INSERT INTO vehicle_brands (brand_name, brand_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+            $brand_code = strtoupper(substr($make, 0, 3)) . '_' . uniqid();
+            $stmt_brand_insert->execute([$make, $brand_code]);
+            $brand_id = $conn->lastInsertId();
+        }
+    }
     
     if (isset($_POST['trailer_edit_id']) && $_POST['trailer_edit_id'] !== '') {
         // UPDATE - ตรวจสอบว่าทะเบียนซ้ำกับรถคันอื่นหรือไม่
@@ -24,9 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['trailer_form'])) {
             exit;
         }
         
-        $stmt = $conn->prepare("UPDATE vehicles SET license_plate=?, status=?, updated_at=GETDATE() WHERE vehicle_id=?");
+        $sql = "UPDATE vehicles SET license_plate=?, province=?, brand_id=?, model_name=?, year_manufactured=?, category_id=?, vehicle_description=?, status=?, updated_at=GETDATE() WHERE vehicle_id=?";
+        $stmt = $conn->prepare($sql);
         try {
-            $stmt->execute([$license_plate, $status, $_POST['trailer_edit_id']]);
+            $stmt->execute([$license_plate, $province, $brand_id, $model, $year, $trailer_category_id, $vehicle_description, $status, $_POST['trailer_edit_id']]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
                 echo "<script>alert('ทะเบียนรถนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
@@ -44,9 +85,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['trailer_form'])) {
             exit;
         }
         
-        $stmt = $conn->prepare("INSERT INTO vehicles (license_plate, category_id, status, created_at, updated_at) VALUES (?, ?, ?, GETDATE(), GETDATE())");
+        $sql = "INSERT INTO vehicles (license_plate, province, brand_id, model_name, year_manufactured, category_id, vehicle_description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())";
+        $stmt = $conn->prepare($sql);
         try {
-            $stmt->execute([$license_plate, $trailer_category_id, $status]);
+            $stmt->execute([$license_plate, $province, $brand_id, $model, $year, $trailer_category_id, $vehicle_description, $status]);
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'UNIQUE KEY constraint') !== false) {
                 echo "<script>alert('ทะเบียนรถนี้มีอยู่ในระบบแล้ว กรุณาใช้ทะเบียนอื่น');window.history.back();</script>";
@@ -76,8 +118,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
     $status = trim($_POST['status']);
     $last_updated_by_employee_id = $_SESSION['employee_id'] ?? 1;
     $last_updated_at = date('Y-m-d H:i:s');
+    
+    // ตรวจสอบว่าเป็นรถพ่วงหรือไม่ และเติม "พ่วง" ข้างหน้าทะเบียน
+    $is_trailer = ($vehicle_type === 'รถพ่วง');
+    if ($is_trailer && substr($license_plate, 0, 4) !== 'พ่วง') {
+        $license_plate = 'พ่วง' . $license_plate;
+    }
+    
     // Prevent empty license plate (which causes duplicate key error)
-    if ($license_plate === '') {
+    if ($license_plate === '' || $license_plate === 'พ่วง') {
         echo "<script>alert('กรุณากรอกทะเบียนรถ');window.history.back();</script>";
         exit;
     }
@@ -112,17 +161,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
         // Get or create category_id
         $category_id = null;
         if (!empty($vehicle_type)) {
-            $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_name = ?");
-            $stmt_cat->execute([$vehicle_type]);
-            $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
-            if ($category) {
-                $category_id = $category['category_id'];
+            // สำหรับรถพ่วง ใช้ category_code = 'TRAILER'
+            if ($vehicle_type === 'รถพ่วง') {
+                $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_code = 'TRAILER'");
+                $stmt_cat->execute();
+                $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
+                if ($category) {
+                    $category_id = $category['category_id'];
+                } else {
+                    // Create TRAILER category
+                    $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                    $stmt_cat_insert->execute(['รถพ่วง', 'TRAILER']);
+                    $category_id = $conn->lastInsertId();
+                }
             } else {
-                // Create new category
-                $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
-                $category_code = strtoupper(str_replace(' ', '_', $vehicle_type));
-                $stmt_cat_insert->execute([$vehicle_type, $category_code]);
-                $category_id = $conn->lastInsertId();
+                $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_name = ?");
+                $stmt_cat->execute([$vehicle_type]);
+                $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
+                if ($category) {
+                    $category_id = $category['category_id'];
+                } else {
+                    // Create new category
+                    $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                    $category_code = strtoupper(str_replace(' ', '_', $vehicle_type));
+                    $stmt_cat_insert->execute([$vehicle_type, $category_code]);
+                    $category_id = $conn->lastInsertId();
+                }
             }
         }
         
@@ -188,17 +252,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['trailer_form'])) {
         // Get or create category_id
         $category_id = null;
         if (!empty($vehicle_type)) {
-            $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_name = ?");
-            $stmt_cat->execute([$vehicle_type]);
-            $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
-            if ($category) {
-                $category_id = $category['category_id'];
+            // สำหรับรถพ่วง ใช้ category_code = 'TRAILER'
+            if ($vehicle_type === 'รถพ่วง') {
+                $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_code = 'TRAILER'");
+                $stmt_cat->execute();
+                $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
+                if ($category) {
+                    $category_id = $category['category_id'];
+                } else {
+                    // Create TRAILER category
+                    $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                    $stmt_cat_insert->execute(['รถพ่วง', 'TRAILER']);
+                    $category_id = $conn->lastInsertId();
+                }
             } else {
-                // Create new category
-                $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
-                $category_code = strtoupper(str_replace(' ', '_', $vehicle_type));
-                $stmt_cat_insert->execute([$vehicle_type, $category_code]);
-                $category_id = $conn->lastInsertId();
+                $stmt_cat = $conn->prepare("SELECT category_id FROM vehicle_categories WHERE category_name = ?");
+                $stmt_cat->execute([$vehicle_type]);
+                $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
+                if ($category) {
+                    $category_id = $category['category_id'];
+                } else {
+                    // Create new category
+                    $stmt_cat_insert = $conn->prepare("INSERT INTO vehicle_categories (category_name, category_code, created_at, updated_at) VALUES (?, ?, GETDATE(), GETDATE())");
+                    $category_code = strtoupper(str_replace(' ', '_', $vehicle_type));
+                    $stmt_cat_insert->execute([$vehicle_type, $category_code]);
+                    $category_id = $conn->lastInsertId();
+                }
             }
         }
         
@@ -414,9 +493,9 @@ if (isset($_GET['trailer_edit'])) {
                     ?>
                     <tr class="even:bg-[#111827] odd:bg-[#1f2937] hover:bg-[#374151] transition-colors">
                         <td class="px-4 py-2"><?=htmlspecialchars($v['license_plate'])?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['make'] ?? '-') : '-' ?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['model'] ?? '-') : '-' ?></td>
-                        <td class="px-4 py-2"><?= $v['type'] === 'vehicle' ? htmlspecialchars($v['year'] ?? '-') : '-' ?></td>
+                        <td class="px-4 py-2"><?= htmlspecialchars($v['make'] ?? '-') ?></td>
+                        <td class="px-4 py-2"><?= htmlspecialchars($v['model'] ?? '-') ?></td>
+                        <td class="px-4 py-2"><?= htmlspecialchars($v['year'] ?? '-') ?></td>
                         <td class="px-4 py-2 <?= $v['type'] === 'vehicle' && is_numeric($current_mileage) ? 'text-[#fbbf24] font-semibold' : '' ?>"><?= $v['type'] === 'vehicle' ? $mileage_display : '-' ?></td>
                         <!-- Department cell removed as field doesn't exist in database -->
                         <td class="px-4 py-2">
@@ -428,11 +507,10 @@ if (isset($_GET['trailer_edit'])) {
                             ?>
                         </td>
                         <td class="px-4 py-2">
+                            <button onclick='editVehicle(<?=json_encode($v)?>)' class="text-[#60a5fa] underline mr-2 hover:text-[#4ade80] transition">แก้ไข</button>
                             <?php if ($v['type'] === 'vehicle'): ?>
-                                <button onclick='editVehicle(<?=json_encode($v)?>)' class="text-[#60a5fa] underline mr-2 hover:text-[#4ade80] transition">แก้ไข</button>
                                 <a href="?delete=<?=$v['vehicle_id']?>" class="text-[#f87171] underline hover:text-[#ef4444] transition" onclick="return confirm('ยืนยันการลบ?')">ลบ</a>
                             <?php else: ?>
-                                <button onclick='editTrailer({trailer_id: "<?=htmlspecialchars($v['vehicle_id'])?>", trailer_name: "<?=htmlspecialchars($v['license_plate'])?>", status: "<?=htmlspecialchars($v['status'])?>"})' class="text-[#60a5fa] underline mr-2 hover:text-[#4ade80] transition">แก้ไข</button>
                                 <a href="?trailer_delete=<?=$v['vehicle_id']?>" class="text-[#f87171] underline hover:text-[#ef4444] transition" onclick="return confirm('ยืนยันการลบ?')">ลบ</a>
                             <?php endif; ?>
                         </td>
@@ -452,11 +530,16 @@ if (isset($_GET['trailer_edit'])) {
                 
                 <form id="vehicleForm" method="post" class="space-y-6">
                     <input type="hidden" name="edit_id" id="vehicle_edit_id">
+                    <input type="hidden" name="trailer_edit_id" id="trailer_edit_id">
+                    <input type="hidden" name="trailer_form" id="trailer_form_hidden">
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ทะเบียนรถ</label>
-                            <input type="text" name="license_plate" id="license_plate" placeholder="กข-1234" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" required>
+                            <div class="flex">
+                                <span id="trailer_prefix" class="bg-[#374151] border border-r-0 border-[#374151] rounded-l-lg px-3 py-3 text-[#e0e0e0] hidden">พ่วง</span>
+                                <input type="text" name="license_plate" id="license_plate" placeholder="กข-1234" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors" required>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-[#e5e7eb] mb-2">จังหวัด</label>
@@ -510,7 +593,7 @@ if (isset($_GET['trailer_edit'])) {
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="vehicle_details">
                         <div>
                             <label class="block text-sm font-medium text-[#e5e7eb] mb-2">VIN / เลขตัวถัง</label>
                             <input type="text" name="vin" id="vin" placeholder="1HGBH41JXMN109186" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
@@ -521,7 +604,7 @@ if (isset($_GET['trailer_edit'])) {
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="fuel_mileage">
                         <div>
                             <label class="block text-sm font-medium text-[#e5e7eb] mb-2">ชนิดน้ำมัน</label>
                             <select name="fuel_type" id="fuel_type" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
@@ -549,7 +632,7 @@ if (isset($_GET['trailer_edit'])) {
                         </select>
                     </div>
                     
-                    <div>
+                    <div id="vehicle_description_field">
                         <label class="block text-sm font-medium text-[#e5e7eb] mb-2">หมายเหตุ</label>
                         <textarea name="vehicle_description" id="vehicle_description" rows="3" placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับรถ..." class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] placeholder-[#9ca3af] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors resize-none"></textarea>
                     </div>
@@ -568,36 +651,6 @@ if (isset($_GET['trailer_edit'])) {
     </div>
 
     <!-- ส่วนจัดการรถพ่วง (ปุ่มเพิ่มรถพ่วง) ถูกนำออก -->
-
-    <!-- Modal ฟอร์มรถพ่วง -->
-    <div id="trailerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-[#1f2937] rounded-2xl shadow-xl p-8 max-w-xl w-full relative text-[#e0e0e0]">
-            <button onclick="closeTrailerModal()" class="absolute top-2 right-2 text-2xl text-[#f87171] hover:text-[#ef4444] font-bold">&times;</button>
-            <h2 id="trailerModalTitle" class="text-xl font-bold mb-4 text-[#60a5fa]">เพิ่มรถพ่วง</h2>
-            <form id="trailerForm" method="post" class="space-y-5">
-                <input type="hidden" name="trailer_form" value="1">
-                <input type="hidden" name="trailer_edit_id" id="trailer_edit_id">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block font-semibold mb-1">ทะเบียนพ่วง</label>
-                        <input type="text" name="trailer_license_plate" id="trailer_license_plate" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]" required>
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1">สถานะ</label>
-                        <select name="trailer_status" id="trailer_status" class="w-full rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0]">
-                            <option value="active">ใช้งาน</option>
-                            <option value="inactive">ไม่ใช้งาน</option>
-                            <option value="maintenance">ซ่อมบำรุง</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="mt-6 text-center flex flex-col md:flex-row gap-4 justify-center">
-                    <button type="submit" id="trailerSubmitBtn" class="transition-all duration-150 bg-[#60a5fa] hover:bg-[#4ade80] text-[#111827] font-semibold px-6 py-2 rounded-lg shadow hover:scale-105">บันทึก</button>
-                    <button type="button" onclick="closeTrailerModal()" class="transition-all duration-150 bg-[#f87171] hover:bg-[#ef4444] text-white font-semibold px-6 py-2 rounded-lg shadow hover:scale-105">ยกเลิก</button>
-                </div>
-            </form>
-        </div>
-    </div>
 </div>
 
 <script>
@@ -608,43 +661,127 @@ function openVehicleModal() {
     document.getElementById('vehicleModalTitle').innerText = 'เพิ่มรถใหม่';
     document.getElementById('vehicleForm').reset();
     document.getElementById('vehicle_edit_id').value = '';
+    document.getElementById('trailer_edit_id').value = '';
+    document.getElementById('trailer_form_hidden').value = '';
+    
+    // ซ่อน prefix รถพ่วง
+    hideTrailerPrefix();
+    
     document.getElementById('vehicle_type_other').classList.add('hidden');
     document.getElementById('vehicle_type_other').required = false;
     document.getElementById('vehicleModal').classList.remove('hidden');
     document.getElementById('vehicleModal').style.display = 'flex';
     isSubmitting = false;
 }
+
 function closeVehicleModal() {
     document.getElementById('vehicleModal').classList.add('hidden');
     document.getElementById('vehicleModal').style.display = 'none';
     isSubmitting = false;
 }
-function editVehicle(data) {
-    document.getElementById('vehicleModalTitle').innerText = 'แก้ไขข้อมูลรถ';
-    document.getElementById('vehicle_edit_id').value = data.vehicle_id || '';
-    document.getElementById('license_plate').value = data.license_plate || '';
-    document.getElementById('province').value = data.province || '';
-    document.getElementById('make').value = data.make || '';
-    document.getElementById('model').value = data.model || '';
-    document.getElementById('year').value = data.year || '';
-    document.getElementById('vin').value = data.vin || data.chassis_number || '';
-    document.getElementById('color').value = data.color || '';
-    document.getElementById('vehicle_type').value = data.vehicle_type || data.category_name || '';
-    document.getElementById('fuel_type').value = data.fuel_type || '';
-    document.getElementById('current_mileage').value = data.current_mileage || data.last_odometer_reading || '';
-    document.getElementById('vehicle_description').value = data.vehicle_description || '';
-    document.getElementById('status').value = data.status || 'active';
+
+function showTrailerPrefix() {
+    const prefix = document.getElementById('trailer_prefix');
+    const licensePlate = document.getElementById('license_plate');
+    prefix.classList.remove('hidden');
+    licensePlate.classList.remove('rounded-lg');
+    licensePlate.classList.add('rounded-r-lg');
+    licensePlate.placeholder = 'กข-1234';
+}
+
+function hideTrailerPrefix() {
+    const prefix = document.getElementById('trailer_prefix');
+    const licensePlate = document.getElementById('license_plate');
+    prefix.classList.add('hidden');
+    licensePlate.classList.remove('rounded-r-lg');
+    licensePlate.classList.add('rounded-lg');
+    licensePlate.placeholder = 'กข-1234';
+}
+
+function toggleFieldsForTrailer(isTrailer) {
+    const fieldsToHide = ['vehicle_details', 'fuel_mileage'];  // ลบ vehicle_description_field ออก
+    const makeField = document.getElementById('make');
+    const modelField = document.getElementById('model');
+    const yearField = document.getElementById('year');
     
-    // Show/hide "อื่น ๆ" input based on vehicle type
-    if (data.vehicle_type === 'อื่นๆ' || (data.category_name && !['รถบรรทุก', 'รถถังน้ำมัน', 'รถพ่วง', 'รถกระบะ', '4 ล้อ', '6 ล้อ', '10 ล้อ'].includes(data.category_name))) {
-        document.getElementById('vehicle_type').value = 'อื่นๆ';
-        document.getElementById('vehicle_type_other').classList.remove('hidden');
-        document.getElementById('vehicle_type_other').value = data.vehicle_type || data.category_name || '';
-        document.getElementById('vehicle_type_other').required = true;
+    fieldsToHide.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            if (isTrailer) {
+                field.style.display = 'none';
+            } else {
+                field.style.display = 'block';
+            }
+        }
+    });
+    
+    // จัดการ required fields - รถพ่วงสามารถมียี่ห้อ รุ่น ปี ได้
+    if (isTrailer) {
+        makeField.required = false;  // ไม่บังคับแต่ยังสามารถกรอกได้
+        modelField.required = false;
+        yearField.required = false;
+        showTrailerPrefix();
     } else {
-        document.getElementById('vehicle_type_other').classList.add('hidden');
-        document.getElementById('vehicle_type_other').required = false;
-        document.getElementById('vehicle_type_other').value = '';
+        makeField.required = true;
+        modelField.required = true;
+        yearField.required = true;
+        hideTrailerPrefix();
+    }
+}
+
+function editVehicle(data) {
+    const isTrailer = (data.type === 'trailer' || data.vehicle_type === 'รถพ่วง' || data.category_name === 'รถพ่วง');
+    
+    if (isTrailer) {
+        document.getElementById('vehicleModalTitle').innerText = 'แก้ไขข้อมูลรถพ่วง';
+        document.getElementById('trailer_edit_id').value = data.vehicle_id || '';
+        document.getElementById('trailer_form_hidden').value = '1';
+        
+        // ลบ "พ่วง" ออกจากทะเบียนเพื่อแสดงในฟิลด์
+        let licensePlate = data.license_plate || '';
+        if (licensePlate.startsWith('พ่วง')) {
+            licensePlate = licensePlate.substring(4);
+        }
+        document.getElementById('license_plate').value = licensePlate;
+        document.getElementById('province').value = data.province || '';
+        document.getElementById('make').value = data.make || '';
+        document.getElementById('model').value = data.model || '';
+        document.getElementById('year').value = data.year || '';
+        document.getElementById('vehicle_type').value = 'รถพ่วง';
+        document.getElementById('status').value = data.status || 'active';
+        document.getElementById('vehicle_description').value = data.vehicle_description || '';
+        
+        toggleFieldsForTrailer(true);
+    } else {
+        document.getElementById('vehicleModalTitle').innerText = 'แก้ไขข้อมูลรถ';
+        document.getElementById('vehicle_edit_id').value = data.vehicle_id || '';
+        document.getElementById('trailer_form_hidden').value = '';
+        document.getElementById('license_plate').value = data.license_plate || '';
+        document.getElementById('province').value = data.province || '';
+        document.getElementById('make').value = data.make || '';
+        document.getElementById('model').value = data.model || '';
+        document.getElementById('year').value = data.year || '';
+        document.getElementById('vin').value = data.vin || data.chassis_number || '';
+        document.getElementById('color').value = data.color || '';
+        document.getElementById('vehicle_type').value = data.vehicle_type || data.category_name || '';
+        document.getElementById('fuel_type').value = data.fuel_type || '';
+        document.getElementById('current_mileage').value = data.current_mileage || data.last_odometer_reading || '';
+        document.getElementById('vehicle_description').value = data.vehicle_description || '';
+        document.getElementById('status').value = data.status || 'active';
+        
+        // Show/hide "อื่น ๆ" input based on vehicle type
+        if (data.vehicle_type === 'อื่นๆ' || (data.category_name && !['รถบรรทุก', 'รถถังน้ำมัน', 'รถพ่วง', 'รถกระบะ', '4 ล้อ', '6 ล้อ', '10 ล้อ'].includes(data.category_name))) {
+            document.getElementById('vehicle_type').value = 'อื่นๆ';
+            document.getElementById('vehicle_type_other').classList.remove('hidden');
+            document.getElementById('vehicle_type_other').value = data.vehicle_type || data.category_name || '';
+            document.getElementById('vehicle_type_other').required = true;
+        } else {
+            document.getElementById('vehicle_type_other').classList.add('hidden');
+            document.getElementById('vehicle_type_other').required = false;
+            document.getElementById('vehicle_type_other').value = '';
+        }
+        
+        toggleFieldsForTrailer(false);
     }
     
     document.getElementById('vehicleModal').classList.remove('hidden');
@@ -652,38 +789,21 @@ function editVehicle(data) {
     isSubmitting = false;
 }
 
-function openTrailerModal() {
-    document.getElementById('trailerModalTitle').innerText = 'เพิ่มรถพ่วง';
-    document.getElementById('trailerForm').reset();
-    document.getElementById('trailer_edit_id').value = '';
-    document.getElementById('trailerModal').classList.remove('hidden');
-    isSubmitting = false;
-}
-function closeTrailerModal() {
-    document.getElementById('trailerModal').classList.add('hidden');
-    isSubmitting = false;
-}
-function editTrailer(data) {
-    document.getElementById('trailerModalTitle').innerText = 'แก้ไขข้อมูลรถพ่วง';
-    document.getElementById('trailer_edit_id').value = data.trailer_id || '';
-    document.getElementById('trailer_license_plate').value = data.trailer_name || '';
-    document.getElementById('trailer_status').value = data.status || 'active';
-    document.getElementById('trailerModal').classList.remove('hidden');
-    isSubmitting = false;
-}
-
 // ป้องกันการส่งฟอร์มซ้ำ
 document.addEventListener('DOMContentLoaded', function() {
     const vehicleForm = document.getElementById('vehicleForm');
-    const trailerForm = document.getElementById('trailerForm');
     const vehicleSubmitBtn = document.getElementById('vehicleSubmitBtn');
-    const trailerSubmitBtn = document.getElementById('trailerSubmitBtn');
     const vehicleType = document.getElementById('vehicle_type');
     const vehicleTypeOther = document.getElementById('vehicle_type_other');
     
     // Handle vehicle type change
     if (vehicleType && vehicleTypeOther) {
         vehicleType.addEventListener('change', function() {
+            const isTrailer = (this.value === 'รถพ่วง');
+            
+            // แสดง/ซ่อนฟิลด์ตามประเภทรถ
+            toggleFieldsForTrailer(isTrailer);
+            
             if (this.value === 'อื่นๆ') {
                 vehicleTypeOther.classList.remove('hidden');
                 vehicleTypeOther.required = true;
@@ -702,17 +822,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
+            const vehicleTypeVal = document.getElementById('vehicle_type').value.trim();
+            const isTrailer = (vehicleTypeVal === 'รถพ่วง');
+            
             // ตรวจสอบข้อมูลพื้นฐาน
             const licensePlate = document.getElementById('license_plate').value.trim();
-            const make = document.getElementById('make').value.trim();
-            const model = document.getElementById('model').value.trim();
-            const year = document.getElementById('year').value.trim();
-            const vehicleTypeVal = document.getElementById('vehicle_type').value.trim();
             
-            if (!licensePlate || !make || !model || !year || !vehicleTypeVal) {
-                alert('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
+            if (!licensePlate) {
+                alert('กรุณากรอกทะเบียนรถ');
                 e.preventDefault();
                 return false;
+            }
+            
+            if (!vehicleTypeVal) {
+                alert('กรุณาเลือกประเภทรถ');
+                e.preventDefault();
+                return false;
+            }
+            
+            // ตรวจสอบข้อมูลเพิ่มเติมสำหรับรถที่ไม่ใช่รถพ่วง
+            if (!isTrailer) {
+                const make = document.getElementById('make').value.trim();
+                const model = document.getElementById('model').value.trim();
+                const year = document.getElementById('year').value.trim();
+                
+                if (!make || !model || !year) {
+                    alert('กรุณากรอกข้อมูลยี่ห้อ รุ่น และปีที่ผลิต');
+                    e.preventDefault();
+                    return false;
+                }
             }
             
             // ตรวจสอบว่าถ้าเลือก "อื่นๆ" ต้องระบุประเภท
@@ -723,29 +861,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
+            // ตั้งค่า trailer_form หากเป็นรถพ่วง
+            if (isTrailer) {
+                document.getElementById('trailer_form_hidden').value = '1';
+            }
+            
             isSubmitting = true;
             vehicleSubmitBtn.disabled = true;
             vehicleSubmitBtn.textContent = 'กำลังบันทึก...';
-        });
-    }
-    
-    if (trailerForm) {
-        trailerForm.addEventListener('submit', function(e) {
-            if (isSubmitting) {
-                e.preventDefault();
-                return false;
-            }
-            
-            const licensePlate = document.getElementById('trailer_license_plate').value.trim();
-            if (!licensePlate) {
-                alert('กรุณากรอกทะเบียนรถพ่วง');
-                e.preventDefault();
-                return false;
-            }
-            
-            isSubmitting = true;
-            trailerSubmitBtn.disabled = true;
-            trailerSubmitBtn.textContent = 'กำลังบันทึก...';
         });
     }
 });
