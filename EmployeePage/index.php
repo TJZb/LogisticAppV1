@@ -37,7 +37,7 @@ $conn = connect_db();
         LEFT JOIN vehicle_categories vc ON v.category_id = vc.category_id
         WHERE v.status = 'active' 
         AND v.is_deleted = 0
-        AND (vc.category_code != 'TRL' OR vc.category_code IS NULL)
+        AND (vc.category_code != 'TRAILER' OR vc.category_code IS NULL)
         ORDER BY v.license_plate
     ");
     $stmt->execute();

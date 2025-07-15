@@ -4,6 +4,13 @@
  * สำหรับการกำหนดค่าต่าง ๆ ที่ใช้ทั่วทั้งระบบ
  */
 
+// ตั้งค่า PHP สำหรับการอัปโหลดไฟล์ขนาดใหญ่
+ini_set('post_max_size', '50M');          // ขนาดสูงสุดของ POST request
+ini_set('upload_max_filesize', '50M');    // ขนาดสูงสุดของไฟล์แต่ละไฟล์
+ini_set('max_file_uploads', 20);          // จำนวนไฟล์สูงสุดที่อัปโหลดได้พร้อมกัน
+ini_set('memory_limit', '256M');          // เพิ่ม memory limit สำหรับประมวลผลไฟล์
+ini_set('max_execution_time', 300);       // เพิ่มเวลาในการประมวลผลเป็น 5 นาที
+
 // การตั้งค่าฐานข้อมูล
 define('DB_HOST', '192.168.50.123');
 define('DB_NAME', 'logistic_app_db');
@@ -16,7 +23,7 @@ define('SESSION_TIMEOUT', 3600); // 1 ชั่วโมง
 
 // การตั้งค่าการอัปโหลดไฟล์
 define('UPLOAD_PATH', __DIR__ . '/../uploads/');
-define('MAX_FILE_SIZE', 5242880); // 5MB
+define('MAX_FILE_SIZE', 52428800); // เพิ่มเป็น 50MB
 define('ALLOWED_EXTENSIONS', ['jpg', 'jpeg', 'png', 'pdf']);
 
 // การตั้งค่าระบบ
