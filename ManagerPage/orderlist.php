@@ -90,6 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
         $total_cost = $_POST['total_cost'];
         $volume_liters = ($price_per_liter > 0) ? ($total_cost / $price_per_liter) : null;
         $mileage = $_POST['odometer_reading'];
+        $gas_station_name = $_POST['gas_station_name'] ?? '';
+        $receipt_number = $_POST['receipt_number'] ?? '';
         // Convert fuel_date to SQL Server format if needed
         if (strpos($fuel_date, 'T') !== false) {
             $fuel_date = str_replace('T', ' ', $fuel_date);
@@ -149,10 +151,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
         $stmt_main_vehicle = $conn->prepare("UPDATE vehicles SET current_mileage = ? WHERE vehicle_id = (SELECT vehicle_id FROM fuel_records WHERE fuel_record_id = ?)");
         $stmt_main_vehicle->execute([$mileage, $fuel_record_id]);
 
-        // อัปเดต FuelRecords (ไม่ต้องเก็บ trailer_odometer_reading เพราะคำนวณได้จากข้อมูลที่มี)
-        $sql = "UPDATE fuel_records SET fuel_date=?, fuel_type=?, price_per_liter=?, volume_liters=?, total_cost=?, odometer_reading=?, notes=?, status='approved' WHERE fuel_record_id=?";
+        // อัปเดต FuelRecords รวมฟิลด์ใหม่และข้อมูลผู้อนุมัติ
+        $current_time = date('Y-m-d H:i:s');
+        $approved_by = $_SESSION['employee_id'] ?? null;
+        
+        $sql = "UPDATE fuel_records SET fuel_date=?, fuel_type=?, price_per_liter=?, volume_liters=?, total_cost=?, odometer_reading=?, gas_station_name=?, receipt_number=?, notes=?, status='approved', approved_by_employee_id=?, approved_at=? WHERE fuel_record_id=?";
         $stmt = $conn->prepare($sql);
-        $stmt->execute([$fuel_date, $fuel_type, $price_per_liter, $volume_liters, $total_cost, $mileage, $notes, $fuel_record_id]);
+        $stmt->execute([$fuel_date, $fuel_type, $price_per_liter, $volume_liters, $total_cost, $mileage, $gas_station_name, $receipt_number, $notes, $approved_by, $current_time, $fuel_record_id]);
         header("Location: orderlist.php");
         exit;
     }
@@ -192,6 +197,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
                                     <div class="font-bold text-md text-[#fbbf24]">รถพ่วง: <?= htmlspecialchars($order['trailer_license_plate']) ?></div>
                                 <?php endif; ?>
                                 <div class="text-sm text-[#a5b4fc]">วันที่: <?= htmlspecialchars($order['fuel_date']) ?></div>
+                                <?php if (!empty($order['gas_station_name'])) : ?>
+                                    <div class="text-sm text-[#a5b4fc]">ปั๊ม: <?= htmlspecialchars($order['gas_station_name']) ?></div>
+                                <?php endif; ?>
+                                <?php if (!empty($order['receipt_number'])) : ?>
+                                    <div class="text-sm text-[#a5b4fc]">เลขที่ใบเสร็จ: <?= htmlspecialchars($order['receipt_number']) ?></div>
+                                <?php endif; ?>
                             </div>
                             <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
                                 <?php if (!empty($attachments[$order['fuel_record_id']])) : ?>
@@ -251,6 +262,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fuel_record_id'])) {
                                     <div>
                                         <label class="block font-semibold mb-1">จำนวนลิตร (คำนวณอัตโนมัติ)</label>
                                         <input type="number" step="0.01" name="volume_liters" id="volume_liters_<?= $order['fuel_record_id'] ?>" class="w-full rounded px-3 py-2 text-[#111827] bg-gray-200" value="<?= ($order['price_per_liter'] > 0 ? number_format($order['total_cost'] / $order['price_per_liter'], 2, '.', '') : '') ?>" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="block font-semibold mb-1">ชื่อปั๊มน้ำมัน</label>
+                                        <input type="text" name="gas_station_name" id="gas_station_name_<?= $order['fuel_record_id'] ?>" class="w-full rounded px-3 py-2 text-[#111827]" value="<?= htmlspecialchars($order['gas_station_name'] ?? '') ?>" placeholder="เช่น PTT, Shell, Bangchak">
+                                    </div>
+                                    <div>
+                                        <label class="block font-semibold mb-1">หมายเลขใบเสร็จ</label>
+                                        <input type="text" name="receipt_number" id="receipt_number_<?= $order['fuel_record_id'] ?>" class="w-full rounded px-3 py-2 text-[#111827]" value="<?= htmlspecialchars($order['receipt_number'] ?? '') ?>" placeholder="เลขที่ใบเสร็จ">
                                     </div>
                                     <?php
                                     // ดึงเลขไมล์ปัจจุบันของรถพ่วงจากตาราง vehicles (ถ้ามี)

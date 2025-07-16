@@ -555,10 +555,10 @@ function getExcelData() {
         }
     }
     
-    const reportTitle = factoryCode ? `รายการเติมน้ำมัน${factoryCode}` : 'รายการเติมน้ำมันรวมทุกสังกัด';
+    const reportTitle = 'รายการเติมน้ำมัน';
     const reportSub = factoryCode ? `สำเนารายการจากสลิปน้ำมัน - ${orgName}` : 'สำเนารายการจากสลิปน้ำมัน - รวมทุกสังกัด';
     const headers = [
-        'วันที่', 'เวลา', 'ทะเบียนรถ', 'เลขไมล์', 'ชนิดน้ำมัน', 'ราคาต่อลิตร', 'ลิตร', 'ราคารวม',
+        'วันที่', 'เวลา', 'สาขา/จังหวัด', 'เลขไมล์', 'ชนิดน้ำมัน', 'ราคาต่อลิตร', 'ลิตร', 'ราคารวม',
         'ระยะที่วิ่ง(กม.)', 'เฉลี่ยบาทต่อกม.', 'เฉลี่ยกม.ต่อลิตร', 'เฉลี่ยลิตรต่อกม.'
     ];
     
@@ -660,7 +660,7 @@ function getExcelData() {
             let avgLiterPerKm = '';
             if (mainDistance && prevLiters) avgLiterPerKm = (Number(prevLiters) / Number(mainDistance)).toFixed(4);
             
-            let row = [date, time, rec.license_plate ?? '', mileage, fuelType, costPerLiter, liters, totalCost,
+            let row = [date, time, rec.gas_station_name ?? '', mileage, fuelType, costPerLiter, liters, totalCost,
                 mainDistance, avgBahtPerKm, avgKmPerLiter, avgLiterPerKm
             ];
             
@@ -754,34 +754,15 @@ function getExcelData() {
                 }
             }
             
-            // --- สะสมยอดรวม ---
-            if (liters && !isNaN(Number(liters))) sumLiters += Number(liters);
-            if (totalCost && !isNaN(Number(totalCost))) sumCost += Number(totalCost);
+            // --- สะสมยอดรวม (รถพ่วง: เฉพาะระยะทาง) ---
             if (trailerDistance && !isNaN(Number(trailerDistance))) { sumDistance += Number(trailerDistance); countDistance++; }
             
-            // --- เฉลี่ย 3 ช่องท้าย ---
-            // หาลิตรจากครั้งก่อน (น้ำมันที่ใช้ไปจริง) สำหรับรถพ่วง
-            let prevLiters = '';
-            for (let j = idx - 1; j >= 0; j--) {
-                const prevRec = trailerGrouped[trailerPlate][j];
-                if (prevRec.total_cost && prevRec.price_per_liter && Number(prevRec.price_per_liter) > 0) {
-                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.price_per_liter)).toFixed(2);
-                    break;
-                } else if (prevRec.volume_liters) {
-                    prevLiters = prevRec.volume_liters;
-                    break;
-                }
-            }
-            
-            let avgBahtPerKm = '';
-            if (trailerDistance && totalCost) avgBahtPerKm = (Number(totalCost) / Number(trailerDistance)).toFixed(2);
-            let avgKmPerLiter = '';
-            if (trailerDistance && prevLiters) avgKmPerLiter = (Number(trailerDistance) / Number(prevLiters)).toFixed(2);
-            let avgLiterPerKm = '';
-            if (trailerDistance && prevLiters) avgLiterPerKm = (Number(prevLiters) / Number(trailerDistance)).toFixed(4);
-            
-            let row = [date, time, trailerPlate, mileage, fuelType, costPerLiter, liters, totalCost,
-                trailerDistance, avgBahtPerKm, avgKmPerLiter, avgLiterPerKm
+            // --- เฉลี่ย 3 ช่องท้าย (รถพ่วง: ไม่มีข้อมูลน้ำมัน) ---
+            // รถพ่วงไม่มีข้อมูลน้ำมัน ไม่ต้องคำนวณเฉลี่ย
+            // สำหรับรถพ่วง: ไม่มีข้อมูลน้ำมัน แสดงเฉพาะเลขไมล์และระยะวิ่ง
+            // คอลัมน์สาขา = ทะเบียนรถหลักที่ลาก
+            let row = [date, time, rec.license_plate ?? '', mileage, '', '', '', '',
+                trailerDistance, '', '', ''
             ];
             
             dataRows.push({
@@ -790,14 +771,10 @@ function getExcelData() {
             });
         });
         
-        // --- แสดงยอดรวมใต้ตาราง ---
-        let sumAvgBahtPerKm = (sumDistance && sumCost) ? (sumCost / sumDistance).toFixed(2) : '';
-        let sumAvgKmPerLiter = (sumLiters && sumDistance) ? (sumDistance / sumLiters).toFixed(2) : '';
-        let sumAvgLiterPerKm = (sumLiters && sumDistance) ? (sumLiters / sumDistance).toFixed(4) : '';
-        
+        // --- แสดงยอดรวมใต้ตาราง (รถพ่วง: เฉพาะระยะทาง) ---
         dataRows.push({
             type: 'summary-row',
-            cells: ['รวม', '', '', '', '', '', sumLiters.toFixed(2), sumCost.toFixed(2), sumDistance.toFixed(2), sumAvgBahtPerKm, sumAvgKmPerLiter, sumAvgLiterPerKm]
+            cells: ['รวม', '', '', '', '', '', '', '', sumDistance.toFixed(2), '', '', '']
         });
     });
     
@@ -821,13 +798,12 @@ function exportToExcel() {
     // เพิ่มหัวกระดาษ
     csv.push('<table style="font-family: Angsana New, AngsanaUPC, Tahoma, Arial, sans-serif; font-size:16pt;">');
     
-    // เพิ่มข้อมูลตัวกรองที่มุมขวาบน (ถ้ามี)
+    // เพิ่มข้อมูลตัวกรองที่แถวบนสุด ชิดขวา (ถ้ามี)
     if (filterText) {
-        csv.push(`<tr><td colspan="${excelData.headers.length - 3}" style="text-align:center;font-size:22pt;font-weight:bold;">${excelData.reportTitle}</td><td colspan="3" style="text-align:right;font-size:10pt;font-family:Angsana New;vertical-align:top;">${filterText}</td></tr>`);
-    } else {
-        csv.push(`<tr><td colspan="${excelData.headers.length}" style="text-align:center;font-size:22pt;font-weight:bold;">${excelData.reportTitle}</td></tr>`);
+        csv.push(`<tr><td colspan="${excelData.headers.length - 1}" style="border:none;"></td><td style="text-align:right;font-size:10pt;font-family:Angsana New;color:#666;border:none;">${filterText}</td></tr>`);
     }
     
+    csv.push(`<tr><td colspan="${excelData.headers.length}" style="text-align:center;font-size:22pt;font-weight:bold;">${excelData.reportTitle}</td></tr>`);
     csv.push(`<tr><td colspan="${excelData.headers.length}" style="text-align:center;font-size:20pt;">${excelData.reportSub}</td></tr>`);
     
     // วนลูปข้อมูลจาก dataRows
@@ -890,8 +866,13 @@ function exportToODS() {
     '</style:style>\n' +
     '<style:style style:name="FilterStyle" style:family="table-cell" style:parent-style-name="Default">\n' +
         '<style:table-cell-properties fo:border="0.5pt solid #000000" fo:background-color="#ffffff" style:text-align-source="fix" style:repeat-content="false"/>\n' +
+        '<style:paragraph-properties fo:text-align="center"/>\n' +
+        '<style:text-properties style:font-name="Angsana New" fo:font-size="12pt" fo:color="#666666"/>\n' +
+    '</style:style>\n' +
+    '<style:style style:name="FilterTopStyle" style:family="table-cell" style:parent-style-name="Default">\n' +
+        '<style:table-cell-properties fo:border="none" fo:background-color="#ffffff" style:text-align-source="fix" style:repeat-content="false"/>\n' +
         '<style:paragraph-properties fo:text-align="right"/>\n' +
-        '<style:text-properties style:font-name="Angsana New" fo:font-size="10pt"/>\n' +
+        '<style:text-properties style:font-name="Angsana New" fo:font-size="10pt" fo:color="#666666"/>\n' +
     '</style:style>\n' +
     '<style:style style:name="HeaderStyle" style:family="table-cell" style:parent-style-name="Default">\n' +
         '<style:table-cell-properties fo:background-color="#eeeeee" style:text-align-source="fix" style:repeat-content="false"/>\n' +
@@ -962,32 +943,27 @@ function exportToODS() {
         // ส่วนหัวรายงาน
         '<table:table-row>\n';
     
-    // ถ้ามีข้อมูลตัวกรอง ให้แบ่ง title และ filter
+    // เพิ่มข้อมูลตัวกรองที่แถวบนสุด ชิดขวา (ถ้ามี)
     if (filterText) {
-        const titleCols = excelData.headers.length - 3;
-        odsContent += '<table:table-cell table:style-name="TitleStyle" table:number-columns-spanned="' + titleCols + '" office:value-type="string">\n' +
-                '<text:p>' + excelData.reportTitle + '</text:p>\n' +
-            '</table:table-cell>\n';
-        // เพิ่ม covered cells สำหรับ title
-        for (let i = 1; i < titleCols; i++) {
-            odsContent += '<table:covered-table-cell/>\n';
+        // เซลล์ว่างสำหรับ columns ซ้าย
+        for (let i = 0; i < excelData.headers.length - 1; i++) {
+            odsContent += '<table:table-cell table:style-name="Default" office:value-type="string"><text:p></text:p></table:table-cell>\n';
         }
-        // เพิ่มข้อมูลตัวกรองที่มุมขวาบน
-        odsContent += '<table:table-cell table:style-name="FilterStyle" table:number-columns-spanned="3" office:value-type="string">\n' +
+        // เซลล์สุดท้ายสำหรับตัวกรอง (ชิดขวา)
+        odsContent += '<table:table-cell table:style-name="FilterTopStyle" office:value-type="string">\n' +
                 '<text:p>' + filterText + '</text:p>\n' +
             '</table:table-cell>\n';
-        // เพิ่ม covered cells สำหรับ filter
-        for (let i = 1; i < 3; i++) {
-            odsContent += '<table:covered-table-cell/>\n';
-        }
-    } else {
-        odsContent += '<table:table-cell table:style-name="TitleStyle" table:number-columns-spanned="' + excelData.headers.length + '" office:value-type="string">\n' +
+        odsContent += '</table:table-row>\n';
+    }
+    
+    odsContent += '<table:table-row>\n' +
+            '<table:table-cell table:style-name="TitleStyle" table:number-columns-spanned="' + excelData.headers.length + '" office:value-type="string">\n' +
                 '<text:p>' + excelData.reportTitle + '</text:p>\n' +
             '</table:table-cell>\n';
-        // เพิ่ม covered cells สำหรับ title row
-        for (let i = 1; i < excelData.headers.length; i++) {
-            odsContent += '<table:covered-table-cell/>\n';
-        }
+    
+    // เพิ่ม covered cells สำหรับ title row
+    for (let i = 1; i < excelData.headers.length; i++) {
+        odsContent += '<table:covered-table-cell/>\n';
     }
     
     odsContent += '</table:table-row>\n' +
@@ -995,10 +971,13 @@ function exportToODS() {
             '<table:table-cell table:style-name="SubTitleStyle" table:number-columns-spanned="' + excelData.headers.length + '" office:value-type="string">\n' +
                 '<text:p>' + excelData.reportSub + '</text:p>\n' +
             '</table:table-cell>\n';
+    
     // เพิ่ม covered cells สำหรับ subtitle row
     for (let i = 1; i < excelData.headers.length; i++) {
         odsContent += '<table:covered-table-cell/>\n';
     }
+    
+    odsContent += '</table:table-row>\n';
     odsContent += '</table:table-row>\n';
     
     // วนลูปข้อมูลจาก dataRows
@@ -1112,7 +1091,7 @@ function exportToODS() {
 
 function exportToCSV() {
     const filterText = getFilterDescription();
-    const headers = ['วันที่', 'เวลา', 'ทะเบียนรถ', 'เลขไมล์', 'ชนิดน้ำมัน', 'ราคาต่อลิตร', 'ลิตร', 'ราคารวม', 'หมายเหตุ'];
+    const headers = ['วันที่', 'เวลา', 'สาขา/จังหวัด', 'เลขไมล์', 'ชนิดน้ำมัน', 'ราคาต่อลิตร', 'ลิตร', 'ราคารวม', 'หมายเหตุ'];
     let csvContent = '\uFEFF';
     
     // เพิ่มข้อมูลตัวกรองที่มุมขวาบน (ถ้ามี)
@@ -1138,7 +1117,7 @@ function exportToCSV() {
         }
         
         const row = [
-            date, time, rec.license_plate ?? '', rec.odometer_reading ?? '', 
+            date, time, rec.gas_station_name ?? '', rec.odometer_reading ?? '', 
             rec.fuel_type ?? '', rec.price_per_liter ?? '', liters, 
             rec.total_cost ?? '', getCleanNotes(rec.notes ?? '')
         ];
@@ -1178,11 +1157,11 @@ function exportToPDF() {
         }
     }
     
-    const reportTitle = factoryCode ? `รายงานการเติมน้ำมัน${factoryCode}` : 'รายงานการเติมน้ำมันรวมทุกสังกัด';
+    const reportTitle = 'รายการเติมน้ำมัน';
     const reportSub = factoryCode ? `สำเนารายการจากสลิปน้ำมัน - ${orgName}` : 'สำเนารายการจากสลิปน้ำมัน - รวมทุกสังกัด';
     const filterText = getFilterDescription();
     const headers = [
-        'วันที่', 'เวลา', 'ทะเบียนรถ', 'เลขไมล์', 'ชนิดน้ำมัน', 'ราคาต่อลิตร', 'ลิตร', 'ราคารวม',
+        'วันที่', 'เวลา', 'สาขา/จังหวัด', 'เลขไมล์', 'ชนิดน้ำมัน', 'ราคาต่อลิตร', 'ลิตร', 'ราคารวม',
         'ระยะที่วิ่ง(กม.)', 'เฉลี่ยบาทต่อกม.', 'เฉลี่ยกม.ต่อลิตร', 'เฉลี่ยลิตรต่อกม.'
     ];
     
@@ -1327,7 +1306,7 @@ function exportToPDF() {
                 <tr>
                     <td>${date}</td>
                     <td>${time}</td>
-                    <td>${rec.license_plate ?? ''}</td>
+                    <td>${rec.gas_station_name ?? ''}</td>
                     <td>${mileage}</td>
                     <td>${fuelType}</td>
                     <td>${costPerLiter}</td>
@@ -1430,64 +1409,41 @@ function exportToPDF() {
                 }
             }
             
-            // สะสมยอดรวม
-            if (liters && !isNaN(Number(liters))) sumLiters += Number(liters);
-            if (totalCost && !isNaN(Number(totalCost))) sumCost += Number(totalCost);
+            // สะสมยอดรวม (รถพ่วง: ไม่มีข้อมูลน้ำมัน)
             if (trailerDistance && !isNaN(Number(trailerDistance))) sumDistance += Number(trailerDistance);
             
-            // หาลิตรจากครั้งก่อน (น้ำมันที่ใช้ไปจริง) สำหรับรถพ่วง
-            let prevLiters = '';
-            for (let j = idx - 1; j >= 0; j--) {
-                const prevRec = trailerGrouped3[trailerPlate][j];
-                if (prevRec.total_cost && prevRec.price_per_liter && Number(prevRec.price_per_liter) > 0) {
-                    prevLiters = (Number(prevRec.total_cost) / Number(prevRec.price_per_liter)).toFixed(2);
-                    break;
-                } else if (prevRec.volume_liters) {
-                    prevLiters = prevRec.volume_liters;
-                    break;
-                }
-            }
+            // รถพ่วงไม่มีข้อมูลน้ำมัน ไม่ต้องคำนวณเฉลี่ย
             
-            // คำนวณเฉลี่ย
-            let avgBahtPerKm = '';
-            if (trailerDistance && totalCost) avgBahtPerKm = (Number(totalCost) / Number(trailerDistance)).toFixed(2);
-            let avgKmPerLiter = '';
-            if (trailerDistance && prevLiters) avgKmPerLiter = (Number(trailerDistance) / Number(prevLiters)).toFixed(2);
-            let avgLiterPerKm = '';
-            if (trailerDistance && prevLiters) avgLiterPerKm = (Number(prevLiters) / Number(trailerDistance)).toFixed(4);
-            
+            // สำหรับรถพ่วง: แสดงทะเบียนรถหลักในคอลัมน์สาขา และเฉพาะข้อมูลเลขไมล์/ระยะวิ่ง
             printContent += `
                 <tr>
                     <td>${date}</td>
                     <td>${time}</td>
-                    <td>${trailerPlate}</td>
+                    <td>${rec.license_plate ?? ''}</td>
                     <td>${mileage}</td>
-                    <td>${fuelType}</td>
-                    <td>${costPerLiter}</td>
-                    <td>${liters}</td>
-                    <td>${totalCost}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
                     <td>${trailerDistance}</td>
-                    <td>${avgBahtPerKm}</td>
-                    <td>${avgKmPerLiter}</td>
-                    <td>${avgLiterPerKm}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
                 </tr>
             `;
         });
         
-        // --- แสดงยอดรวมใต้ตาราง ---
-        let sumAvgBahtPerKm = (sumDistance && sumCost) ? (sumCost / sumDistance).toFixed(2) : '';
-        let sumAvgKmPerLiter = (sumLiters && sumDistance) ? (sumDistance / sumLiters).toFixed(2) : '';
-        let sumAvgLiterPerKm = (sumLiters && sumDistance) ? (sumLiters / sumDistance).toFixed(4) : '';
+        // --- แสดงยอดรวมใต้ตาราง (รถพ่วง: เฉพาะระยะทาง) ---
         
         printContent += `
                 <tr class="summary">
                     <td colspan="6"><b>รวม</b></td>
-                    <td><b>${sumLiters.toFixed(2)}</b></td>
-                    <td><b>${sumCost.toFixed(2)}</b></td>
+                    <td><b></b></td>
+                    <td><b></b></td>
                     <td><b>${sumDistance.toFixed(2)}</b></td>
-                    <td><b>${sumAvgBahtPerKm}</b></td>
-                    <td><b>${sumAvgKmPerLiter}</b></td>
-                    <td><b>${sumAvgLiterPerKm}</b></td>
+                    <td><b></b></td>
+                    <td><b></b></td>
+                    <td><b></b></td>
                 </tr>
             </table>
         `;
