@@ -14,8 +14,8 @@ ini_set('max_execution_time', 300);       // เพิ่มเวลาใน�
 // การตั้งค่าฐานข้อมูล
 define('DB_HOST', '192.168.50.123');
 define('DB_NAME', 'logistic_app_db');
-define('DB_USER', 'sa');
-define('DB_PASS', 'P@ssw0rd');
+define('DB_USER', 'bcf_it_dev');
+define('DB_PASS', 'bcf@625_information');
 define('DB_TYPE', 'sqlsrv'); // ประเภทฐานข้อมูล
 
 // การตั้งค่าเซสชัน
@@ -24,7 +24,7 @@ define('SESSION_TIMEOUT', 3600); // 1 ชั่วโมง
 // การตั้งค่าการอัปโหลดไฟล์
 define('UPLOAD_PATH', __DIR__ . '/../uploads/');
 define('MAX_FILE_SIZE', 52428800); // เพิ่มเป็น 50MB
-define('ALLOWED_EXTENSIONS', ['jpg', 'jpeg', 'png', 'pdf']);
+define('ALLOWED_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']); // ลบ pdf ออก
 
 // การตั้งค่าระบบ
 define('SYSTEM_NAME', 'ระบบจัดการขนส่ง');

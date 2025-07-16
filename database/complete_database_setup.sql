@@ -55,15 +55,10 @@ BEGIN
         factory_id INT IDENTITY(1,1) PRIMARY KEY,
         factory_name NVARCHAR(100) NOT NULL,
         factory_code NVARCHAR(20) NOT NULL UNIQUE,
-        factory_address NVARCHAR(500),
-        factory_phone NVARCHAR(20),
-        factory_manager NVARCHAR(100),
         description NVARCHAR(MAX) NULL,
-        is_active BIT NOT NULL DEFAULT 1,
-        created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-        updated_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-        created_by NVARCHAR(50),
-        updated_by NVARCHAR(50)
+        is_active BIT DEFAULT 1,
+        created_at DATETIME2 DEFAULT GETDATE(),
+        updated_at DATETIME2 DEFAULT GETDATE()
     )
 END
 GO
@@ -282,13 +277,9 @@ END
 GO
 
 -- ข้อมูลสังกัดรถ (Factory/Department)
-IF NOT EXISTS (SELECT * FROM vehicles_factory WHERE factory_code = 'BKK01')
+IF NOT EXISTS (SELECT * FROM vehicles_factory WHERE factory_code = 'GW')
 BEGIN
     INSERT INTO vehicles_factory (factory_name, factory_code, description) VALUES
-    (N'โรงงานกรุงเทพ', 'BKK01', N'โรงงานกรุงเทพมหานคร'),
-    (N'โรงงานระยอง', 'RYG01', N'โรงงานจังหวัดระยอง'),
-    (N'โรงงานชลบุรี', 'CBR01', N'โรงงานจังหวัดชลบุรี'),
-    (N'สำนักงานใหญ่', 'HQ001', N'สำนักงานใหญ่ กรุงเทพมหานคร'),
     (N'Golden World', 'GW', N'โรงงาน Golden World'),
     (N'Industrial', 'IND', N'โรงงานอุตสาหกรรม'),
     (N'Logistics', 'LOG', N'ศูนย์กระจายสินค้า'),

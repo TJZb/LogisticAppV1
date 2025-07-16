@@ -1,0 +1,10 @@
+[2025-07-15 10:28:27] User: 1 | IP: 192.168.50.123 | Action: LOGOUT | Details: User: admin
+[2025-07-15 10:28:34] User: anonymous | IP: 192.168.50.123 | Action: LOGIN_SUCCESS | Details: User: admin
+[2025-07-15 13:29:43] User: 1 | IP: 192.168.50.123 | Action: LOGOUT | Details: User: admin
+[2025-07-15 13:29:50] User: anonymous | IP: 192.168.50.123 | Action: LOGIN_FAILED | Details: Username: admin
+[2025-07-15 13:29:57] User: anonymous | IP: 192.168.50.123 | Action: LOGIN_SUCCESS | Details: User: admin
+[2025-07-15 14:05:55] User: anonymous | IP: 192.168.50.254 | Action: LOGIN_SUCCESS | Details: User: admin
+[2025-07-15 14:09:55] User: 1 | IP: 192.168.50.254 | Action: LOGOUT | Details: User: admin
+[2025-07-15 14:10:04] User: anonymous | IP: 192.168.50.254 | Action: LOGIN_SUCCESS | Details: User: 11137
+[2025-07-15 14:28:38] User: 1 | IP: 192.168.50.123 | Action: LOGOUT | Details: User: admin
+[2025-07-15 14:28:53] User: anonymous | IP: 192.168.50.123 | Action: LOGIN_SUCCESS | Details: User: admin

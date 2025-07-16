@@ -1,94 +1,168 @@
 <?php
-/**
- * Quick Test Script สำหรับทดสอบระบบ
- * ใช้สำหรับตรวจสอบการทำงานของระบบหลังจาก Deploy
- */
+require_once 'service/connect.php';
 
-echo "<h1>🚛 Logistic App - System Test</h1>";
-echo "<p>วันที่ทดสอบ: " . date('Y-m-d H:i:s') . "</p>";
-echo "<hr>";
+// Ensure database connection
+$conn = connect_db();
 
-// ทดสอบการเชื่อมต่อฐานข้อมูล
-echo "<h2>1. ทดสอบการเชื่อมต่อฐานข้อมูล</h2>";
-try {
-    require_once 'service/connect.php';
-    $conn = connect_db();
-    echo "✅ เชื่อมต่อฐานข้อมูลสำเร็จ<br>";
-    
-    // ทดสอบการ query
-    $stmt = $conn->query("SELECT COUNT(*) as count FROM vehicles");
-    $result = $stmt->fetch();
-    echo "✅ จำนวนรถในระบบ: " . $result['count'] . " คัน<br>";
-    
-} catch (Exception $e) {
-    echo "❌ ไม่สามารถเชื่อมต่อฐานข้อมูล: " . $e->getMessage() . "<br>";
+if (!$conn) {
+    die("Database connection failed!");
 }
 
-// ทดสอบการ Authentication
-echo "<h2>2. ทดสอบระบบ Authentication</h2>";
-try {
-    require_once 'includes/auth.php';
-    echo "✅ โหลด Authentication system สำเร็จ<br>";
-} catch (Exception $e) {
-    echo "❌ ปัญหาระบบ Authentication: " . $e->getMessage() . "<br>";
-}
+echo "<h1>Debug Form Submission</h1>";
 
-// ทดสอบการมีอยู่ของไฟล์สำคัญ
-echo "<h2>3. ทดสอบไฟล์สำคัญ</h2>";
-$important_files = [
-    'config/config.php' => 'การตั้งค่าระบบ',
-    'EmployeePage/index.php' => 'หน้าเลือกรถ (Employee)',
-    'EmployeePage/Addfeal_form.php' => 'ฟอร์มเติมน้ำมัน',
-    'ManagerPage/index.php' => 'จัดการรถ (Manager)',
-    'ManagerPage/orderlist.php' => 'อนุมัติรายการ',
-    'AdminPage/user_manage.php' => 'จัดการผู้ใช้ (Admin)'
-];
-
-foreach ($important_files as $file => $description) {
-    if (file_exists($file)) {
-        echo "✅ $description ($file)<br>";
-    } else {
-        echo "❌ ไม่พบไฟล์: $description ($file)<br>";
-    }
-}
-
-// ทดสอบโฟลเดอร์ uploads
-echo "<h2>4. ทดสอบการอัพโหลดไฟล์</h2>";
-if (is_dir('uploads') && is_writable('uploads')) {
-    echo "✅ โฟลเดอร์ uploads พร้อมใช้งาน<br>";
+echo "<h2>Database Connection Status:</h2>";
+if ($conn) {
+    echo "<p style='color: green;'>✅ Database connected successfully</p>";
 } else {
-    echo "❌ โฟลเดอร์ uploads ไม่พร้อมใช้งาน<br>";
+    echo "<p style='color: red;'>❌ Database connection failed</p>";
 }
 
-// ทดสอบ PHP Extensions
-echo "<h2>5. ทดสอบ PHP Extensions</h2>";
-$required_extensions = ['pdo', 'pdo_sqlsrv', 'mbstring', 'json'];
-foreach ($required_extensions as $ext) {
-    if (extension_loaded($ext)) {
-        echo "✅ PHP Extension: $ext<br>";
+echo "<h2>POST Data Received:</h2>";
+echo "<pre>";
+print_r($_POST);
+echo "</pre>";
+
+echo "<h2>GET Data Received:</h2>";
+echo "<pre>";
+print_r($_GET);
+echo "</pre>";
+
+echo "<h2>Request Method:</h2>";
+echo "<p>" . $_SERVER['REQUEST_METHOD'] . "</p>";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    echo "<h2>Processing License Plate Check:</h2>";
+    
+    // Check if it's trailer form
+    if (isset($_POST['trailer_form'])) {
+        echo "<p>Form type: <strong>TRAILER FORM</strong></p>";
+        $license_plate = trim($_POST['license_plate']);
+        echo "<p>Original license plate: <strong>" . htmlspecialchars($license_plate) . "</strong></p>";
+        
+        // Add "พ่วง" prefix if not exists
+        if (substr($license_plate, 0, 4) !== 'พ่วง') {
+            $license_plate = 'พ่วง' . $license_plate;
+        }
+        echo "<p>Final license plate: <strong>" . htmlspecialchars($license_plate) . "</strong></p>";
     } else {
-        echo "❌ ไม่พบ PHP Extension: $ext<br>";
+        echo "<p>Form type: <strong>MAIN VEHICLE FORM</strong></p>";
+        $license_plate = trim($_POST['license_plate']);
+        echo "<p>Original license plate: <strong>" . htmlspecialchars($license_plate) . "</strong></p>";
+        
+        $vehicle_type = $_POST['vehicle_type'] === 'อื่นๆ' ? trim($_POST['vehicle_type_other']) : trim($_POST['vehicle_type']);
+        echo "<p>Vehicle type: <strong>" . htmlspecialchars($vehicle_type) . "</strong></p>";
+        
+        // Check if it's trailer
+        $is_trailer = ($vehicle_type === 'รถพ่วง');
+        if ($is_trailer && substr($license_plate, 0, 4) !== 'พ่วง') {
+            $license_plate = 'พ่วง' . $license_plate;
+        }
+        echo "<p>Is trailer: <strong>" . ($is_trailer ? 'YES' : 'NO') . "</strong></p>";
+        echo "<p>Final license plate: <strong>" . htmlspecialchars($license_plate) . "</strong></p>";
+    }
+    
+    // Check for empty license plate
+    if ($license_plate === '' || $license_plate === 'พ่วง') {
+        echo "<p style='color: red;'>ERROR: Empty license plate!</p>";
+    } else {
+        // Check for duplicates
+        try {
+            $stmt_check = $conn->prepare("SELECT vehicle_id, license_plate FROM vehicles WHERE license_plate = ? AND is_deleted = 0");
+            $stmt_check->execute([$license_plate]);
+            $existing = $stmt_check->fetch(PDO::FETCH_ASSOC);
+            
+            echo "<h3>Duplicate Check Result:</h3>";
+            if ($existing) {
+                echo "<p style='color: red;'>DUPLICATE FOUND!</p>";
+                echo "<p>Existing Vehicle ID: " . $existing['vehicle_id'] . "</p>";
+                echo "<p>Existing License: " . htmlspecialchars($existing['license_plate']) . "</p>";
+            } else {
+                echo "<p style='color: green;'>No duplicate found - this license can be used</p>";
+            }
+            
+            // Show all vehicles with similar license
+            $stmt_all = $conn->prepare("SELECT * FROM vehicles WHERE license_plate LIKE ? AND is_deleted = 0");
+            $stmt_all->execute(["%$license_plate%"]);
+            $similar = $stmt_all->fetchAll(PDO::FETCH_ASSOC);
+            
+            echo "<h3>Similar License Plates in Database:</h3>";
+            if (empty($similar)) {
+                echo "<p>No similar license plates found</p>";
+            } else {
+                echo "<table border='1' style='border-collapse: collapse;'>";
+                echo "<tr><th>ID</th><th>License</th><th>Category</th><th>Status</th><th>Created</th></tr>";
+                foreach ($similar as $vehicle) {
+                    echo "<tr>";
+                    echo "<td>" . $vehicle['vehicle_id'] . "</td>";
+                    echo "<td>" . htmlspecialchars($vehicle['license_plate']) . "</td>";
+                    echo "<td>" . htmlspecialchars($vehicle['category_id'] ?? 'N/A') . "</td>";
+                    echo "<td>" . htmlspecialchars($vehicle['status']) . "</td>";
+                    echo "<td>" . htmlspecialchars($vehicle['created_at'] ?? 'N/A') . "</td>";
+                    echo "</tr>";
+                }
+                echo "</table>";
+            }
+            
+        } catch (Exception $e) {
+            echo "<p style='color: red;'>Database Error: " . $e->getMessage() . "</p>";
+        }
     }
 }
 
-// ข้อมูลระบบ
-echo "<h2>6. ข้อมูลระบบ</h2>";
-echo "PHP Version: " . PHP_VERSION . "<br>";
-echo "Server: " . $_SERVER['SERVER_SOFTWARE'] . "<br>";
-echo "Document Root: " . $_SERVER['DOCUMENT_ROOT'] . "<br>";
-
-echo "<hr>";
-echo "<h2>🔗 ลิงก์ทดสอบ</h2>";
-echo "<a href='login.php' target='_blank'>🔐 หน้าเข้าสู่ระบบ</a><br>";
-echo "<a href='EmployeePage/' target='_blank'>👷 หน้าพนักงาน</a><br>";
-echo "<a href='ManagerPage/' target='_blank'>👔 หน้าผู้จัดการ</a><br>";
-echo "<a href='AdminPage/' target='_blank'>⚙️ หน้าผู้ดูแลระบบ</a><br>";
-
-echo "<hr>";
-echo "<p><strong>ข้อมูลการเข้าสู่ระบบ:</strong></p>";
-echo "<ul>";
-echo "<li>Admin: admin / 123456</li>";
-echo "<li>Manager: manager / 123456</li>";
-echo "<li>Employee: employee1 / 123456</li>";
-echo "</ul>";
+echo "<h2>All Vehicles in Database:</h2>";
+try {
+    $stmt = $conn->prepare("SELECT TOP 10 vehicle_id, license_plate, status, is_deleted, created_at FROM vehicles ORDER BY created_at DESC");
+    $stmt->execute();
+    
+    echo "<table border='1' style='border-collapse: collapse;'>";
+    echo "<tr><th>ID</th><th>License Plate</th><th>Status</th><th>Deleted</th><th>Created</th></tr>";
+    
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        echo "<tr>";
+        echo "<td>" . $row['vehicle_id'] . "</td>";
+        echo "<td>" . htmlspecialchars($row['license_plate']) . "</td>";
+        echo "<td>" . htmlspecialchars($row['status']) . "</td>";
+        echo "<td>" . ($row['is_deleted'] ? 'YES' : 'NO') . "</td>";
+        echo "<td>" . htmlspecialchars($row['created_at']) . "</td>";
+        echo "</tr>";
+    }
+    
+    echo "</table>";
+    
+    // Show total count
+    $count_stmt = $conn->prepare("SELECT COUNT(*) as total FROM vehicles WHERE is_deleted = 0");
+    $count_stmt->execute();
+    $total = $count_stmt->fetchColumn();
+    echo "<p>Total active vehicles: <strong>$total</strong></p>";
+    
+} catch (Exception $e) {
+    echo "<p style='color: red;'>Error: " . $e->getMessage() . "</p>";
+}
 ?>
+
+<style>
+table { margin: 10px 0; }
+th, td { padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+</style>
+
+<form method="POST" action="debug_form.php">
+    <h2>Test Form Submission:</h2>
+    
+    <h3>Test as Main Vehicle:</h3>
+    <input type="text" name="license_plate" placeholder="Enter license plate" required>
+    <select name="vehicle_type" required>
+        <option value="">Select type</option>
+        <option value="รถบรรทุก">รถบรรทุก</option>
+        <option value="รถพ่วง">รถพ่วง</option>
+        <option value="4 ล้อ">4 ล้อ</option>
+    </select>
+    <button type="submit">Test Main Vehicle</button>
+    
+    <hr>
+    
+    <h3>Test as Trailer:</h3>
+    <input type="text" name="license_plate" placeholder="Enter license plate" required>
+    <input type="hidden" name="trailer_form" value="1">
+    <button type="submit">Test Trailer</button>
+</form>
