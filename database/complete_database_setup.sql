@@ -48,6 +48,26 @@ BEGIN
 END
 GO
 
+-- ตารางสังกัดรถ (Factory/Department)
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='vehicles_factory' AND xtype='U')
+BEGIN
+    CREATE TABLE vehicles_factory (
+        factory_id INT IDENTITY(1,1) PRIMARY KEY,
+        factory_name NVARCHAR(100) NOT NULL,
+        factory_code NVARCHAR(20) NOT NULL UNIQUE,
+        factory_address NVARCHAR(500),
+        factory_phone NVARCHAR(20),
+        factory_manager NVARCHAR(100),
+        description NVARCHAR(MAX) NULL,
+        is_active BIT NOT NULL DEFAULT 1,
+        created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+        updated_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+        created_by NVARCHAR(50),
+        updated_by NVARCHAR(50)
+    )
+END
+GO
+
 -- ตารางประเภทรถ
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='vehicle_categories' AND xtype='U')
 BEGIN
@@ -141,6 +161,7 @@ BEGIN
         gross_weight DECIMAL(8,2) NULL,
         seating_capacity INT NULL,
         category_id INT NULL,
+        factory_id INT NULL,
         current_mileage INT NULL,
         status NVARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'maintenance', 'in_use', 'out_of_service', 'sold')),
         vehicle_description NVARCHAR(MAX) NULL,
@@ -149,7 +170,8 @@ BEGIN
         updated_at DATETIME2 DEFAULT GETDATE(),
         FOREIGN KEY (brand_id) REFERENCES vehicle_brands(brand_id),
         FOREIGN KEY (fuel_type_id) REFERENCES fuel_types(fuel_type_id),
-        FOREIGN KEY (category_id) REFERENCES vehicle_categories(category_id)
+        FOREIGN KEY (category_id) REFERENCES vehicle_categories(category_id),
+        FOREIGN KEY (factory_id) REFERENCES vehicles_factory(factory_id)
     )
 END
 GO
@@ -256,6 +278,22 @@ BEGIN
     (N'รถโดยสาร', 'BUS', N'รถโดยสารขนส่งผู้โดยสาร'),
     (N'รถตู้', 'VAN', N'รถตู้สำหรับขนส่งสินค้าหรือผู้โดยสาร'),
     (N'รถจักรยานยนต์', 'MOTOR', N'รถจักรยานยนต์ทุกประเภท')
+END
+GO
+
+-- ข้อมูลสังกัดรถ (Factory/Department)
+IF NOT EXISTS (SELECT * FROM vehicles_factory WHERE factory_code = 'BKK01')
+BEGIN
+    INSERT INTO vehicles_factory (factory_name, factory_code, description) VALUES
+    (N'โรงงานกรุงเทพ', 'BKK01', N'โรงงานกรุงเทพมหานคร'),
+    (N'โรงงานระยอง', 'RYG01', N'โรงงานจังหวัดระยอง'),
+    (N'โรงงานชลบุรี', 'CBR01', N'โรงงานจังหวัดชลบุรี'),
+    (N'สำนักงานใหญ่', 'HQ001', N'สำนักงานใหญ่ กรุงเทพมหานคร'),
+    (N'Golden World', 'GW', N'โรงงาน Golden World'),
+    (N'Industrial', 'IND', N'โรงงานอุตสาหกรรม'),
+    (N'Logistics', 'LOG', N'ศูนย์กระจายสินค้า'),
+    (N'Transport', 'TRP', N'แผนกขนส่ง'),
+    (N'Maintenance', 'MNT', N'แผนกซ่อมบำรุง')
 END
 GO
 

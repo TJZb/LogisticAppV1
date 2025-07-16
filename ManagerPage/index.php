@@ -20,6 +20,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $vehicle_description = trim($_POST['vehicle_description'] ?? '');
     $status = trim($_POST['status']);
     
+    // ตรวจสอบการมีอยู่ของคอลัมน์ factory_id ในตาราง vehicles
+    $has_factory_column = false;
+    try {
+        $stmt_check = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'vehicles' AND COLUMN_NAME = 'factory_id'");
+        $stmt_check->execute();
+        $has_factory_column = ($stmt_check->fetchColumn() > 0);
+    } catch (Exception $e) {
+        $has_factory_column = false;
+    }
+    
+    $factory_id = null;
+    if ($has_factory_column && !empty($_POST['factory_id'])) {
+        $factory_id = intval($_POST['factory_id']);
+    }
+    
     // ตรวจสอบว่าเป็นรถพ่วงหรือไม่
     $is_trailer_form = isset($_POST['trailer_form']) && $_POST['trailer_form'] === '1';
     $vehicle_type = $is_trailer_form ? 'รถพ่วง' : ($_POST['vehicle_type'] === 'อื่นๆ' ? trim($_POST['vehicle_type_other']) : trim($_POST['vehicle_type']));
@@ -121,12 +136,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         
-        $sql = "UPDATE vehicles SET license_plate=?, province=?, brand_id=?, model_name=?, year_manufactured=?, chassis_number=?, color=?, category_id=?, fuel_type_id=?, current_mileage=?, vehicle_description=?, status=?, updated_at=GETDATE() WHERE vehicle_id=?";
+        $sql = "UPDATE vehicles SET license_plate=?, province=?, brand_id=?, model_name=?, year_manufactured=?, chassis_number=?, color=?, category_id=?, fuel_type_id=?, current_mileage=?, vehicle_description=?, status=?";
+        $params = [$license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $current_mileage, $vehicle_description, $status];
+        
+        if ($has_factory_column) {
+            $sql .= ", factory_id=?";
+            $params[] = $factory_id;
+        }
+        
+        $sql .= ", updated_at=GETDATE() WHERE vehicle_id=?";
+        $params[] = $edit_id;
+        
         $stmt = $conn->prepare($sql);
         try {
-            $stmt->execute([
-                $license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $current_mileage, $vehicle_description, $status, $edit_id
-            ]);
+            $stmt->execute($params);
             error_log("Successfully updated vehicle: " . $license_plate . " (ID: " . $edit_id . ")");
         } catch (PDOException $e) {
             error_log("Error updating vehicle: " . $e->getMessage());
@@ -148,12 +171,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         
-        $sql = "INSERT INTO vehicles (license_plate, province, brand_id, model_name, year_manufactured, chassis_number, color, category_id, fuel_type_id, current_mileage, vehicle_description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())";
+        $sql = "INSERT INTO vehicles (license_plate, province, brand_id, model_name, year_manufactured, chassis_number, color, category_id, fuel_type_id, current_mileage, vehicle_description, status";
+        $params = [$license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $current_mileage, $vehicle_description, $status];
+        
+        if ($has_factory_column) {
+            $sql .= ", factory_id";
+            $params[] = $factory_id;
+        }
+        
+        $sql .= ", created_at, updated_at) VALUES (" . str_repeat('?,', count($params)) . "GETDATE(), GETDATE())";
+        
         $stmt = $conn->prepare($sql);
         try {
-            $stmt->execute([
-                $license_plate, $province, $brand_id, $model, $year, $vin, $color, $category_id, $fuel_type_id, $current_mileage, $vehicle_description, $status
-            ]);
+            $stmt->execute($params);
             error_log("Successfully inserted vehicle: " . $license_plate . " (Type: " . $vehicle_type . ")");
         } catch (PDOException $e) {
             error_log("Error inserting vehicle: " . $e->getMessage());
@@ -170,18 +200,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// ลบข้อมูล (เปลี่ยน status เป็น inactive)
+// ลบข้อมูล (เปลี่ยน status เป็น out_of_service)
 if (isset($_GET['delete'])) {
-    $stmt = $conn->prepare("UPDATE vehicles SET status = 'inactive', updated_at = GETDATE() WHERE vehicle_id=?");
+    $stmt = $conn->prepare("UPDATE vehicles SET status = 'out_of_service', updated_at = GETDATE() WHERE vehicle_id=?");
     $stmt->execute([$_GET['delete']]);
     header("Location: index.php");
     exit;
 }
 
-// ลบข้อมูลรถพ่วง (เปลี่ยน status เป็น inactive)
+// ลบข้อมูลรถพ่วง (เปลี่ยน status เป็น out_of_service)
 if (isset($_GET['trailer_delete'])) {
-    $stmt = $conn->prepare("UPDATE vehicles SET status = 'inactive', updated_at = GETDATE() WHERE vehicle_id=?");
+    $stmt = $conn->prepare("UPDATE vehicles SET status = 'out_of_service', updated_at = GETDATE() WHERE vehicle_id=?");
     $stmt->execute([$_GET['trailer_delete']]);
+    header("Location: index.php");
+    exit;
+}
+
+// เปิดใช้งานรถ (เปลี่ยน status เป็น active)
+if (isset($_GET['activate'])) {
+    $stmt = $conn->prepare("UPDATE vehicles SET status = 'active', updated_at = GETDATE() WHERE vehicle_id=?");
+    $stmt->execute([$_GET['activate']]);
     header("Location: index.php");
     exit;
 }
@@ -216,13 +254,30 @@ $vehicles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // ดึงข้อมูลรถที่จะแก้ไข (ถ้ามี)
 $edit_vehicle = null;
 if (isset($_GET['edit'])) {
-    $stmt = $conn->prepare("SELECT v.*, vb.brand_name as make, v.model_name as model, v.year_manufactured as year, 
-                           vc.category_name as vehicle_type, v.chassis_number as vin, ft.fuel_name as fuel_type
-                           FROM vehicles v 
+    // ตรวจสอบการมีอยู่ของคอลัมน์ factory_id ในตาราง vehicles
+    $has_factory_column = false;
+    try {
+        $stmt_check = $conn->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'vehicles' AND COLUMN_NAME = 'factory_id'");
+        $stmt_check->execute();
+        $has_factory_column = ($stmt_check->fetchColumn() > 0);
+    } catch (Exception $e) {
+        $has_factory_column = false;
+    }
+    
+    $sql = "SELECT v.*, vb.brand_name as make, v.model_name as model, v.year_manufactured as year, 
+                           vc.category_name as vehicle_type, v.chassis_number as vin, ft.fuel_name as fuel_type";
+    
+    if ($has_factory_column) {
+        $sql .= ", v.factory_id";
+    }
+    
+    $sql .= " FROM vehicles v 
                            LEFT JOIN vehicle_brands vb ON v.brand_id = vb.brand_id
                            LEFT JOIN vehicle_categories vc ON v.category_id = vc.category_id
                            LEFT JOIN fuel_types ft ON v.fuel_type_id = ft.fuel_type_id
-                           WHERE v.vehicle_id=? AND v.is_deleted = 0");
+                           WHERE v.vehicle_id=? AND v.is_deleted = 0";
+    
+    $stmt = $conn->prepare($sql);
     $stmt->execute([$_GET['edit']]);
     $edit_vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
 }
@@ -232,6 +287,18 @@ $vehicle_categories = $conn->query("SELECT DISTINCT category_name FROM vehicle_c
 
 // ดึงข้อมูลแบรนด์รถจากฐานข้อมูล
 $vehicle_brands = $conn->query("SELECT DISTINCT brand_name FROM vehicle_brands WHERE brand_name IS NOT NULL AND brand_name <> '' ORDER BY brand_name ASC")->fetchAll(PDO::FETCH_COLUMN);
+
+// ดึงข้อมูลสังกัดรถจากฐานข้อมูล
+$vehicle_factories = [];
+try {
+    $stmt = $conn->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'vehicles_factory'");
+    if ($stmt->fetchColumn() > 0) {
+        $vehicle_factories = $conn->query("SELECT factory_id, factory_name, factory_code FROM vehicles_factory WHERE is_active = 1 ORDER BY factory_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (Exception $e) {
+    // ถ้าเกิดข้อผิดพลาด ให้ใช้ array ว่าง
+    $vehicle_factories = [];
+}
 
 // ดึงข้อมูลรถพ่วงสำหรับฟอร์มแก้ไข
 $trailers = $conn->query("
@@ -287,15 +354,24 @@ if (isset($_GET['trailer_edit'])) {
                     <option value="<?=htmlspecialchars($vt)?>" <?=isset($_GET['type']) && $_GET['type'] === $vt ? 'selected' : ''?>><?=htmlspecialchars($vt)?></option>
                 <?php endforeach; ?>
             </select>
+            <select name="status" id="status_filter" class="rounded-lg px-3 py-2 bg-[#111827] border border-[#374151] text-[#e0e0e0] w-full sm:w-40">
+                <option value="">ทุกสถานะ</option>
+                <option value="active" <?=isset($_GET['status']) && $_GET['status'] === 'active' ? 'selected' : ''?>>ใช้งาน</option>
+                <option value="maintenance" <?=isset($_GET['status']) && $_GET['status'] === 'maintenance' ? 'selected' : ''?>>ซ่อมบำรุง</option>
+                <option value="out_of_service" <?=isset($_GET['status']) && $_GET['status'] === 'out_of_service' ? 'selected' : ''?>>ไม่ใช้งาน</option>
+            </select>
         </div>
     </form>
     <script>
-    // submit form on input change (search, type)
+    // submit form on input change (search, type, status)
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('search').addEventListener('input', function() {
             document.getElementById('filterForm').submit();
         });
         document.getElementById('type').addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
+        document.getElementById('status_filter').addEventListener('change', function() {
             document.getElementById('filterForm').submit();
         });
     });
@@ -326,11 +402,16 @@ if (isset($_GET['trailer_edit'])) {
                 </thead>
                 <tbody>
                 <?php
-                // ฟิลเตอร์ข้อมูลตาม search และ type
+                // ฟิลเตอร์ข้อมูลตาม search, type และ status
                 $filtered_vehicles = $vehicles;
                 if (isset($_GET['type']) && $_GET['type'] !== '') {
                     $filtered_vehicles = array_filter($filtered_vehicles, function($v) {
                         return isset($v['vehicle_type']) && $v['vehicle_type'] === $_GET['type'];
+                    });
+                }
+                if (isset($_GET['status']) && $_GET['status'] !== '') {
+                    $filtered_vehicles = array_filter($filtered_vehicles, function($v) {
+                        return isset($v['status']) && $v['status'] === $_GET['status'];
                     });
                 }
                 if (isset($_GET['search']) && trim($_GET['search']) !== '') {
@@ -359,17 +440,24 @@ if (isset($_GET['trailer_edit'])) {
                         <td class="px-4 py-2">
                             <?php
                             if ($v['status'] === 'active') echo 'ใช้งาน';
-                            else if ($v['status'] === 'inactive') echo 'ไม่ใช้งาน';
+                            else if ($v['status'] === 'out_of_service') echo 'ไม่ใช้งาน';
                             else if ($v['status'] === 'maintenance') echo 'ซ่อมบำรุง';
                             else echo htmlspecialchars($v['status']);
                             ?>
                         </td>
                         <td class="px-4 py-2">
-                            <button onclick='editVehicle(<?=json_encode($v)?>)' class="text-[#60a5fa] underline mr-2 hover:text-[#4ade80] transition">แก้ไข</button>
-                            <?php if ($v['type'] === 'vehicle'): ?>
-                                <a href="?delete=<?=$v['vehicle_id']?>" class="text-[#f87171] underline hover:text-[#ef4444] transition" onclick="return confirm('ยืนยันการลบ?')">ลบ</a>
-                            <?php else: ?>
-                                <a href="?trailer_delete=<?=$v['vehicle_id']?>" class="text-[#f87171] underline hover:text-[#ef4444] transition" onclick="return confirm('ยืนยันการลบ?')">ลบ</a>
+                            <?php if ($v['status'] !== 'out_of_service'): ?>
+                                <button onclick='editVehicle(<?=json_encode($v)?>)' class="text-[#60a5fa] underline mr-2 hover:text-[#4ade80] transition">แก้ไข</button>
+                            <?php endif; ?>
+                            <?php if ($v['status'] === 'out_of_service'): ?>
+                                <a href="?activate=<?=$v['vehicle_id']?>" class="text-[#4ade80] underline mr-2 hover:text-[#22d3ee] transition" onclick="return confirm('ยืนยันการเปิดใช้งานรถคันนี้?')">เปิดใช้งาน</a>
+                            <?php endif; ?>
+                            <?php if ($v['status'] !== 'out_of_service'): ?>
+                                <?php if ($v['type'] === 'vehicle'): ?>
+                                    <a href="?delete=<?=$v['vehicle_id']?>" class="text-[#f87171] underline hover:text-[#ef4444] transition" onclick="return confirm('ยืนยันการหยุดใช้งาน?')">หยุดใช้งาน</a>
+                                <?php else: ?>
+                                    <a href="?trailer_delete=<?=$v['vehicle_id']?>" class="text-[#f87171] underline hover:text-[#ef4444] transition" onclick="return confirm('ยืนยันการหยุดใช้งาน?')">หยุดใช้งาน</a>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -441,6 +529,30 @@ if (isset($_GET['trailer_edit'])) {
                         </div>
                     </div>
                     
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <?php if (!empty($vehicle_factories)): ?>
+                        <div>
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">สังกัด</label>
+                            <select name="factory_id" id="factory_id" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                                <option value="">เลือกสังกัด</option>
+                                <?php foreach ($vehicle_factories as $factory): ?>
+                                    <option value="<?= htmlspecialchars($factory['factory_id']) ?>"><?= htmlspecialchars($factory['factory_name']) ?> (<?= htmlspecialchars($factory['factory_code']) ?>)</option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <?php else: ?>
+                        <input type="hidden" name="factory_id" id="factory_id" value="">
+                        <?php endif; ?>
+                        <div>
+                            <label class="block text-sm font-medium text-[#e5e7eb] mb-2">สถานะ</label>
+                            <select name="status" id="status" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
+                                <option value="active">ใช้งาน</option>
+                                <option value="maintenance">ซ่อมบำรุง</option>
+                                <option value="out_of_service">ไม่ใช้งาน</option>
+                            </select>
+                        </div>
+                    </div>
+                    
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="vehicle_details">
                         <div>
                             <label class="block text-sm font-medium text-[#e5e7eb] mb-2">VIN / เลขตัวถัง</label>
@@ -473,15 +585,6 @@ if (isset($_GET['trailer_edit'])) {
                     
                     <!-- Hidden input สำหรับรถพ่วง จะส่งค่า 0 เสมอ -->
                     <input type="hidden" name="trailer_mileage_override" id="trailer_mileage_override" value="0">
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-[#e5e7eb] mb-2">สถานะ</label>
-                        <select name="status" id="status" class="w-full p-3 bg-[#111827] border border-[#374151] rounded-lg text-[#e0e0e0] focus:ring-2 focus:ring-[#4f46e5] focus:border-[#4f46e5] transition-colors">
-                            <option value="active">ใช้งาน</option>
-                            <option value="maintenance">ซ่อมบำรุง</option>
-                            <option value="inactive">ไม่ใช้งาน</option>
-                        </select>
-                    </div>
                     
                     <div id="vehicle_description_field">
                         <label class="block text-sm font-medium text-[#e5e7eb] mb-2">หมายเหตุ</label>
@@ -626,6 +729,13 @@ function editVehicle(data) {
         document.getElementById('year').value = data.year || '';
         document.getElementById('vehicle_type').value = 'รถพ่วง';
         document.getElementById('status').value = data.status || 'active';
+        
+        // ตั้งค่า factory_id หากมีข้อมูลและมีฟิลด์
+        const factoryField = document.getElementById('factory_id');
+        if (factoryField && data.factory_id) {
+            factoryField.value = data.factory_id;
+        }
+        
         document.getElementById('vehicle_description').value = data.vehicle_description || '';
         
         toggleFieldsForTrailer(true);
@@ -679,6 +789,12 @@ function editVehicle(data) {
         document.getElementById('current_mileage').value = data.current_mileage || data.last_odometer_reading || '';
         document.getElementById('vehicle_description').value = data.vehicle_description || '';
         document.getElementById('status').value = data.status || 'active';
+        
+        // ตั้งค่า factory_id หากมีข้อมูลและมีฟิลด์
+        const factoryField = document.getElementById('factory_id');
+        if (factoryField && data.factory_id) {
+            factoryField.value = data.factory_id;
+        }
         
         toggleFieldsForTrailer(false);
     }
