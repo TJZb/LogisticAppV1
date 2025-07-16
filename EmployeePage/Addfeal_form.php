@@ -288,16 +288,34 @@
             <div>
                 <label class="block font-semibold mb-1">แนบรูปเกจน้ำมันก่อนเติม</label>
                 <input type="file" name="gauge_before_img" class="w-full text-[#e0e0e0] bg-[#1f2937]" accept="image/*" required onchange="handleImageUpload(this, 'preview_before')">
+                <div class="text-sm text-gray-400 mt-1">
+                    ขนาดไฟล์สูงสุด: 10MB | ระบบจะลดขนาดภาพอัตโนมัติ
+                    <div class="mt-1">
+                        <span class="text-xs bg-blue-600 px-2 py-1 rounded">แนะนำ: 800x600px, คุณภาพ 80%</span>
+                    </div>
+                </div>
                 <div id="preview_before" class="mt-2"></div>
             </div>
             <div>
                 <label class="block font-semibold mb-1">แนบรูปเกจน้ำมันหลังเติม</label>
                 <input type="file" name="gauge_after_img" class="w-full text-[#e0e0e0] bg-[#1f2937]" accept="image/*" required onchange="handleImageUpload(this, 'preview_after')">
+                <div class="text-sm text-gray-400 mt-1">
+                    ขนาดไฟล์สูงสุด: 10MB | ระบบจะลดขนาดภาพอัตโนมัติ
+                    <div class="mt-1">
+                        <span class="text-xs bg-blue-600 px-2 py-1 rounded">แนะนำ: 800x600px, คุณภาพ 80%</span>
+                    </div>
+                </div>
                 <div id="preview_after" class="mt-2"></div>
             </div>
             <div>
-                <label class="block font-semibold mb-1">แนบรูปใบเสร็จ</label>
-                <input type="file" name="receipt_file" class="w-full text-[#e0e0e0] bg-[#1f2937]" accept="image/*" required onchange="handleImageUpload(this, 'preview_receipt')">
+                <label class="block font-semibold mb-1">แนบไฟล์ใบเสร็จ (เฉพาะรูปภาพหรือ PDF)</label>
+                <input type="file" name="receipt_file" class="w-full text-[#e0e0e0] bg-[#1f2937]" accept="image/*,application/pdf" required onchange="handleFileUpload(this, 'preview_receipt')">
+                <div class="text-sm text-gray-400 mt-1">
+                    ขนาดไฟล์สูงสุด: 10MB | รูปภาพจะถูกลดขนาดอัตโนมัติ
+                    <div class="mt-1">
+                        <span class="text-xs bg-blue-600 px-2 py-1 rounded">PDF จะไม่ถูกปรับขนาด</span>
+                    </div>
+                </div>
                 <div id="preview_receipt" class="mt-2"></div>
             </div>
             <div class="flex flex-col md:flex-row gap-4 mt-8">
@@ -364,14 +382,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 // ตรวจสอบขนาดไฟล์แต่ละไฟล์ (10MB = 10485760 bytes)
                 if (fileSize > 10485760) {
                     hasOversizeFile = true;
-                    alert(`ไฟล์บางไฟล์มีขนาดใหญ่เกินไป กรุณาตรวจสอบไฟล์ที่แนบ`);
+                    alert(`ไฟล์ ${input.files[0].name} มีขนาดใหญ่เกินไป (${Math.round(fileSize/1024/1024*100)/100}MB) ขนาดสูงสุดที่อนุญาต: 10MB`);
                 }
             }
         });
         
         // ตรวจสอบขนาดรวมทั้งหมด (30MB = 31457280 bytes) - ลดลงเพราะมีการบีบอัดแล้ว
         if (totalSize > 31457280) {
-            alert(`ไฟล์ทั้งหมดมีขนาดใหญ่เกินไป กรุณาลดจำนวนไฟล์หรือเลือกไฟล์ที่เล็กกว่า`);
+            alert(`ขนาดไฟล์รวมทั้งหมดใหญ่เกินไป (${Math.round(totalSize/1024/1024*100)/100}MB) ขนาดสูงสุดที่อนุญาต: 30MB`);
             hasOversizeFile = true;
         }
         
@@ -448,27 +466,27 @@ async function handleImageUpload(input, previewId) {
     
     // แสดง loading indicator
     showLoadingIndicator(input, previewId, true);
-    updateProgress(0, 'กำลังเตรียมไฟล์...');
+    updateProgress(0, 'เริ่มประมวลผลรูปภาพ...');
     
     try {
         if (file.size > maxSize) {
-            alert(`ไฟล์มีขนาดใหญ่เกินไป กรุณาเลือกไฟล์ที่เล็กกว่า`);
+            alert(`ไฟล์ ${file.name} มีขนาดใหญ่เกินไป (${Math.round(file.size/1024/1024*100)/100}MB)\nขนาดสูงสุดที่อนุญาต: 10MB`);
             input.value = '';
             showLoadingIndicator(input, previewId, false);
             updateProgress(0, '');
             return;
         }
         
-        updateProgress(25, 'กำลังประมวลผล...');
+        updateProgress(25, 'กำลังอ่านไฟล์รูปภาพ...');
         
         // ลดขนาดรูปภาพ
         const originalSize = file.size;
-        updateProgress(50, 'กำลังประมวลผล...');
+        updateProgress(50, 'กำลังลดขนาดรูปภาพ...');
         
         const resizedBlob = await resizeImageOnClient(file);
         const newSize = resizedBlob.size;
         
-        updateProgress(75, 'กำลังเตรียมไฟล์...');
+        updateProgress(75, 'กำลังสร้างไฟล์ใหม่...');
         
         // สร้าง File object ใหม่จาก blob ที่ลดขนาดแล้ว
         const resizedFile = new File([resizedBlob], file.name, {
@@ -481,14 +499,14 @@ async function handleImageUpload(input, previewId) {
         dataTransfer.items.add(resizedFile);
         input.files = dataTransfer.files;
         
-        updateProgress(90, 'เกือบเสร็จแล้ว...');
+        updateProgress(90, 'กำลังสร้างตัวอย่าง...');
         
         // แสดงผลลัพธ์การลดขนาด
         const compressionRatio = ((originalSize - newSize) / originalSize * 100).toFixed(1);
         const sizeBefore = (originalSize / 1024 / 1024).toFixed(2);
         const sizeAfter = (newSize / 1024 / 1024).toFixed(2);
         
-        // แสดงพรีวิว (admin จะเห็นข้อมูลการบีบอัด)
+        // แสดงพรีวิวและข้อมูลการบีบอัด
         showCompressedPreview(input, previewId, resizedFile, {
             sizeBefore,
             sizeAfter,
@@ -504,7 +522,7 @@ async function handleImageUpload(input, previewId) {
         
     } catch (error) {
         console.error('Error resizing image:', error);
-        alert('เกิดข้อผิดพลาดในการประมวลผลไฟล์ กรุณาลองใหม่');
+        alert('เกิดข้อผิดพลาดในการปรับขนาดรูปภาพ');
         input.value = '';
         updateProgress(0, 'เกิดข้อผิดพลาด');
     }
@@ -527,11 +545,91 @@ function updateProgress(percent, message) {
     }
 }
 
-function showLoadingIndicator(input, previewId, show) {
-    // ฟังก์ชันสำหรับแสดง loading indicator (ถ้าต้องการ)
+// ฟังก์ชันจัดการไฟล์ทั่วไป (สำหรับ PDF)
+function handleFileUpload(input, previewId) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    
+    if (file.type.startsWith('image/')) {
+        // ถ้าเป็นรูปภาพ ให้ใช้ฟังก์ชันลดขนาด
+        handleImageUpload(input, previewId);
+    } else {
+        // ถ้าเป็น PDF หรือไฟล์อื่น ไม่ต้องลดขนาด
+        validateFileSize(input);
+        showPreview(input, previewId);
+    }
 }
 
-// Show preview function (สำหรับรูปภาพเท่านั้น)
+// แสดง loading indicator
+function showLoadingIndicator(input, previewId, show) {
+    let preview = document.getElementById(previewId);
+    if (!preview) return;
+    
+    if (show) {
+        preview.innerHTML = `
+            <div class="flex items-center space-x-2 p-2 bg-blue-100 rounded">
+                <svg class="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span class="text-blue-800 text-sm">กำลังปรับขนาดรูปภาพ...</span>
+            </div>
+        `;
+    }
+}
+
+// แสดงพรีวิวพร้อมข้อมูลการบีบอัด
+function showCompressedPreview(input, previewId, file, compressionInfo) {
+    let preview = document.getElementById(previewId);
+    if (!preview) {
+        preview = document.createElement('div');
+        preview.id = previewId;
+        preview.className = "mt-2";
+        input.parentNode.appendChild(preview);
+    }
+    
+    const fileUrl = URL.createObjectURL(file);
+    
+    preview.innerHTML = `
+        <div class="space-y-2">
+            <img src="${fileUrl}" alt="preview" 
+                 class="h-20 rounded shadow cursor-pointer transition-transform hover:scale-105"
+                 onclick="openModal('${fileUrl}', '${file.type}')" />
+            <div class="text-xs bg-green-100 text-green-800 p-2 rounded">
+                <div class="flex justify-between">
+                    <span>ขนาดเดิม: ${compressionInfo.sizeBefore} MB</span>
+                    <span>ขนาดใหม่: ${compressionInfo.sizeAfter} MB</span>
+                </div>
+                <div class="text-center font-semibold">
+                    ลดขนาดได้ ${compressionInfo.compressionRatio}%
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ฟังก์ชันตรวจสอบขนาดไฟล์ (สำหรับไฟล์ที่ไม่ใช่รูปภาพ)
+function validateFileSize(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const maxSize = 10485760; // 10MB in bytes
+        
+        if (file.size > maxSize) {
+            alert(`ไฟล์ ${file.name} มีขนาดใหญ่เกินไป (${Math.round(file.size/1024/1024*100)/100}MB)\nขนาดสูงสุดที่อนุญาต: 10MB\nกรุณาลดขนาดไฟล์ก่อนอัปโหลด`);
+            input.value = ''; // ล้างไฟล์ที่เลือก
+            
+            // ล้างพรีวิว
+            const previewId = input.getAttribute('onchange').match(/preview_\w+/);
+            if (previewId) {
+                const preview = document.getElementById(previewId[0]);
+                if (preview) preview.innerHTML = '';
+            }
+        }
+    }
+}
+
+// Show preview function (สำหรับไฟล์ที่ไม่ใช่รูปภาพ)
 function showPreview(input, previewId) {
     let file = input.files[0];
     let preview = document.getElementById(previewId);
@@ -542,37 +640,24 @@ function showPreview(input, previewId) {
         input.parentNode.appendChild(preview);
     }
     preview.innerHTML = '';
-    if (file && file.type.startsWith('image/')) {
-        let img = document.createElement('img');
-        img.className = "h-20 rounded shadow cursor-pointer transition-transform hover:scale-105";
-        img.src = URL.createObjectURL(file);
-        img.alt = "preview";
-        img.onclick = function() { openModal(img.src, file.type); };
-        preview.appendChild(img);
-    }
-}
-
-// ฟังก์ชันแสดง preview พร้อมข้อมูลการบีบอัด (สำหรับ admin)
-function showCompressedPreview(input, previewId, file, compressionInfo) {
-    // แสดง preview รูปภาพก่อน
-    showPreview(input, previewId);
-    
-    // เช็คว่าเป็น admin หรือไม่ (อ่านจาก PHP session)
-    const userRole = '<?php echo $_SESSION["role"] ?? "employee"; ?>';
-    
-    if (userRole === 'admin') {
-        // เพิ่มข้อมูลการบีบอัดสำหรับ admin
-        const preview = document.getElementById(previewId);
-        if (preview) {
-            const compressionInfo_div = document.createElement('div');
-            compressionInfo_div.className = "mt-2 p-2 bg-blue-900 bg-opacity-50 rounded text-xs text-blue-200";
-            compressionInfo_div.innerHTML = `
-                <div class="font-semibold mb-1">ข้อมูลการบีบอัด (Admin):</div>
-                <div>ขนาดเดิม: ${compressionInfo.sizeBefore} MB</div>
-                <div>ขนาดใหม่: ${compressionInfo.sizeAfter} MB</div>
-                <div>ลดลง: ${compressionInfo.compressionRatio}%</div>
-            `;
-            preview.appendChild(compressionInfo_div);
+    if (file) {
+        if (file.type.startsWith('image/')) {
+            let img = document.createElement('img');
+            img.className = "h-20 rounded shadow cursor-pointer transition-transform hover:scale-105";
+            img.src = URL.createObjectURL(file);
+            img.alt = "preview";
+            img.onclick = function() { openModal(img.src, file.type); };
+            preview.appendChild(img);
+        } else if (file.type === 'application/pdf') {
+            let link = document.createElement('a');
+            link.href = URL.createObjectURL(file);
+            link.textContent = "ดูไฟล์ PDF (คลิกดูเต็มจอ)";
+            link.className = "text-[#60a5fa] underline cursor-pointer";
+            link.onclick = function(e) {
+                e.preventDefault();
+                openModal(link.href, file.type);
+            };
+            preview.appendChild(link);
         }
     }
 }
@@ -580,11 +665,19 @@ function showCompressedPreview(input, previewId, file, compressionInfo) {
 // Modal for full-screen image preview
 function openModal(src, type) {
     let modal = document.getElementById('imgModal');
+    let modalContent = document.getElementById('imgModalContent');
     let modalImg = document.getElementById('imgModalImg');
-    if (!modal || !modalImg) return;
-    
-    modalImg.src = src;
-    modalImg.style.display = '';
+    let modalPdf = document.getElementById('imgModalPdf');
+    if (!modal) return;
+    if (type.startsWith('image/')) {
+        modalImg.src = src;
+        modalImg.style.display = '';
+        modalPdf.style.display = 'none';
+    } else if (type === 'application/pdf') {
+        modalPdf.src = src;
+        modalPdf.style.display = '';
+        modalImg.style.display = 'none';
+    }
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
@@ -595,6 +688,7 @@ function closeModal() {
         document.body.style.overflow = '';
         // Clean up src to release memory
         document.getElementById('imgModalImg').src = '';
+        document.getElementById('imgModalPdf').src = '';
     }
 }
 </script>
@@ -604,7 +698,8 @@ function closeModal() {
     <button onclick="closeModal()" class="absolute top-2 right-2 bg-[#1e293b] text-white rounded-full p-2 shadow-lg z-10 hover:bg-[#334155] focus:outline-none" aria-label="ปิดตัวอย่างเต็มจอ">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
     </button>
-    <img id="imgModalImg" src="" alt="preview" class="max-h-[90vh] max-w-[90vw] rounded-lg shadow-xl" />
+    <img id="imgModalImg" src="" alt="preview" class="max-h-[90vh] max-w-[90vw] rounded-lg shadow-xl" style="display:none;" />
+    <iframe id="imgModalPdf" src="" class="w-[90vw] h-[90vh] rounded-lg shadow-xl" style="display:none; background:white;"></iframe>
   </div>
 </div>
 <?php if (isset($msg)): ?>
